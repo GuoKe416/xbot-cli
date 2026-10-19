@@ -28,6 +28,9 @@ function checkVersions() {
   const version = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
   if (version !== manifest.version) throw new Error(`Cargo version ${version} differs from npm ${manifest.version}`);
   const lock = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'));
+  if (lock.name !== manifest.name || lock.packages[''].name !== manifest.name) {
+    throw new Error('package-lock.json name differs from package.json');
+  }
   if (lock.version !== manifest.version || lock.packages[''].version !== manifest.version) {
     throw new Error('package-lock.json version differs from package.json');
   }

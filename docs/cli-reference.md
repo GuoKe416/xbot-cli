@@ -17,7 +17,7 @@
 
 ## 安装与 Agent 接入
 
-Windows x64、Node.js 22+ 环境可通过 npm 安装预编译程序，无需安装 Rust。安装命令、发布状态和可复制的 Agent 指令见[项目 README](../README.md#安装与首次运行)。
+Windows x64、Node.js 22+ 环境可通过 npm 包 `@guanzhu.me/xbot-cli` 安装预编译程序，无需安装 Rust；安装后的命令名仍是 `xbot-cli`。安装命令和可复制的 Agent 指令见[项目 README](../README.md#安装与首次运行)。
 
 ```powershell
 xbot-cli install --skills --json           # 当前工作区 .agents/skills

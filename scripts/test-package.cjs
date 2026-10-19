@@ -25,7 +25,7 @@ mkdirSync(workdir, { recursive: true });
 try {
   // Local tarball, no dependencies, and lifecycle scripts disabled: no compiler or download.
   npm(['install', '--global', '--prefix', prefix, '--ignore-scripts', '--offline', '--no-audit', '--no-fund', tarball]);
-  const launcher = join(prefix, 'node_modules', 'xbot-cli', 'bin', 'xbot-cli.cjs');
+  const launcher = join(prefix, 'node_modules', ...manifest.name.split('/'), 'bin', 'xbot-cli.cjs');
   const shim = join(prefix, 'xbot-cli.cmd');
   assert.ok(existsSync(shim), 'npm must create its command shim');
   const shimResult = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',

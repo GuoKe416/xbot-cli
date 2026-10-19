@@ -9,7 +9,7 @@ metadata:
 
 通过 `xbot-cli` 调用影刀内置 shell-cli、studio-mcp 和 browser-use-mcp，零注入、零反射。不要使用旧的 `xbot_agent` / `python -m xbot_cli` 工作流。
 
-本 Skill 随 npm 包 `xbot-cli` 分发，适用于 Windows x64 和 Node.js 22+。使用 `xbot-cli install --skills` 安装到当前工作区，或加 `--global` 安装到用户的 `.agents/skills`。运行影刀操作前需要客户端已启动并登录；帮助、schema 和 guide 可离线读取。
+本 Skill 随 npm 包 `@guanzhu.me/xbot-cli` 分发，适用于 Windows x64 和 Node.js 22+，安装后的命令名仍是 `xbot-cli`。使用 `xbot-cli install --skills` 安装到当前工作区，或加 `--global` 安装到用户的 `.agents/skills`。运行影刀操作前需要客户端已启动并登录；帮助、schema 和 guide 可离线读取。
 
 ## 先读这些规则
 

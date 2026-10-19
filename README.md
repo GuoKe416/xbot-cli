@@ -8,10 +8,10 @@ Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判�
 
 当前分发目标为 **Windows x64，Node.js 22 或更高版本**。npm 包包含原生可执行文件，不需要用户安装 Rust，也不在 `postinstall` 阶段下载程序。执行影刀操作前，需要本机已安装影刀客户端并启动、登录；帮助、版本、命令 schema 和内置指南可离线使用。
 
-通过 npm 安装：
+通过 npm 安装。**npm 包名是 `@guanzhu.me/xbot-cli`，安装后的命令名仍是 `xbot-cli`。**
 
 ```powershell
-npm install -g xbot-cli
+npm install -g '@guanzhu.me/xbot-cli'
 xbot-cli --version
 xbot-cli
 xbot-cli status --json
@@ -20,10 +20,10 @@ xbot-cli status --json
 不进行全局安装也可调用：
 
 ```powershell
-npx --yes --package xbot-cli xbot-cli --help
+npx --yes --package '@guanzhu.me/xbot-cli' xbot-cli --help
 ```
 
-这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，固定版本，例如 `xbot-cli@0.6.0`。
+这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，固定版本，例如 `npm install -g '@guanzhu.me/xbot-cli@0.6.0'`。PowerShell 中带 `@` 的 npm 包参数使用单引号包围。
 
 也可从源码构建并直接运行：
 
@@ -206,7 +206,7 @@ cargo build --release
 
 非标准客户端安装可使用 `XBOT_SHELL_CLI`、`XBOT_MCP_ENDPOINT`、`XBOT_BROWSER_MCP_ENDPOINT`、`XBOT_LAUNCHER` 覆盖默认路径或连接地址。不要把账号凭据、生产环境配置或运行日志提交到仓库。
 
-源码托管于 [wn0x00/xbot-cli](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`xbot-cli`](https://www.npmjs.com/package/xbot-cli)。配置发布身份及正式发布步骤见[发布说明](docs/releasing.md)。
+源码托管于 [wn0x00/xbot-cli](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`@guanzhu.me/xbot-cli`](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)，CLI 命令名为 `xbot-cli`。配置发布身份及正式发布步骤见[发布说明](docs/releasing.md)。
 
 ## 许可
 

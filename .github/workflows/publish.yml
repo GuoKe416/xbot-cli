@@ -42,7 +42,7 @@ jobs:
             if (process.env.GITHUB_REF_TYPE !== "tag" || process.env.GITHUB_REF_NAME !== `v${pkg.version}`) {
               throw new Error(`Run this workflow on tag v${pkg.version}; branches cannot publish.`);
             }
-            if (pkg.name !== "xbot-cli") throw new Error("Unexpected npm package name");
+            if (pkg.name !== "@guanzhu.me/xbot-cli") throw new Error("Unexpected npm package name");
             const expected = `https://github.com/${process.env.GITHUB_REPOSITORY}`;
             const repository = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
             const actual = repository?.replace(/^git\+/, "").replace(/\.git$/, "").replace(/\/$/, "");
@@ -77,7 +77,8 @@ jobs:
         id: package
         run: |
           $package = Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json
-          $filename = "xbot-cli-$($package.version).tgz"
+          $packageSlug = $package.name -replace '^@', '' -replace '/', '-'
+          $filename = "$packageSlug-$($package.version).tgz"
           $archive = Join-Path dist $filename
           if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
             throw "Package integration test did not leave the expected archive: $archive"
