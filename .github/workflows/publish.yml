@@ -1,7 +1,9 @@
-name: Publish release
+name: Publish version tag
 
 on:
+  # Recovery: select the existing version tag, never main.
   workflow_dispatch:
+  # Maintainers publish by pushing one version tag after its commit reaches main.
   push:
     tags: ['v*']
 
@@ -122,7 +124,7 @@ jobs:
         run: node scripts/release-publish.cjs npm
 
   github-release:
-    name: Attach the same artifacts to GitHub Release
+    name: Create GitHub Release and attach the tested artifacts
     needs: [build, publish]
     runs-on: windows-latest
     timeout-minutes: 10

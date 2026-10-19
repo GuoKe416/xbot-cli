@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release-config:
-    name: Release configuration
+  release-tools:
+    name: Release tooling
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -27,11 +27,8 @@ jobs:
           node-version: '24'
           package-manager-cache: false
 
-      - name: Install isolated release validation tools
-        run: npm install --prefix "$RUNNER_TEMP/release-tools" --ignore-scripts --no-audit --no-fund release-please@17.3.0 ajv@8.20.0
-
-      - name: Verify version updates and merged PR release recognition
-        run: node scripts/test-release-config.cjs "$RUNNER_TEMP/release-tools"
+      - name: Test version updates, tag validation and publication recovery
+        run: node --test tests/npm/versions.test.cjs tests/npm/set-version.test.cjs tests/npm/release-tag.test.cjs tests/npm/release.test.cjs
 
   windows:
     name: Windows x64 / Node.js 24

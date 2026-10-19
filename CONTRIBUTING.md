@@ -16,7 +16,11 @@ feat(cli)!: 调整任务结果的 JSON 字段
 
 本地临时提交无需逐条符合此格式。影响现有调用方式、JSON 字段、退出码或默认行为的不兼容改动，在标题标记 `!`，并在 PR 说明中写清旧行为、新行为和迁移方式。也可在最终合并提交正文使用 `BREAKING CHANGE:`。
 
-`0.x` 阶段 `fix` 升 patch，`feat` 和不兼容变更升 minor；`1.0.0` 由维护者单独决定。普通开发 PR 不修改项目版本或发布 tag，Release Please 的发版 PR 统一更新 npm、Rust、两个 lockfile 和变更记录。详见[发布说明](docs/releasing.md)。
+Conventional Commits 用于评审和整理变更记录，不自动计算或发布版本。维护者根据兼容性影响决定版本：`0.x` 阶段通常以 patch 发布修复，以 minor 发布功能和不兼容变更；进入 `1.0.0` 也由维护者决定。
+
+普通开发 PR 不修改项目版本或发布 tag。准备发版时，维护者运行 `npm run release:version -- <version>` 同步 npm、Rust 及两个 lockfile 的项目版本，手动更新 `CHANGELOG.md`。这些改动可通过单独的发版准备 PR 评审；合并到 `main`、CI 通过后，维护者手动推送 `v<version>` tag，触发自动构建和 OIDC 发布。版本脚本只修改文件，不创建提交或 tag，也不发布。详见[发布说明](docs/releasing.md)。
+
+上述流程是协作约定。是否强制评审、必需检查和分支保护，由维护者在 GitHub 仓库设置中另行配置。
 
 ## 开发与验证
 

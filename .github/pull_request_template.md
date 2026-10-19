@@ -13,3 +13,4 @@
 - [ ] PR 标题符合 Conventional Commits，适合作为 Squash 合并提交。
 - [ ] 用户可见变更已同步相关文档，并完成适合本次改动的验证。
 - [ ] 普通开发 PR 未手动修改项目版本或发布 tag。
+- [ ] 如为发版准备 PR，已用 `npm run release:version -- <version>` 同步四个版本文件，并更新 `CHANGELOG.md`；合并后由维护者另行推送对应 tag。

@@ -14,27 +14,28 @@ const zipFilename = `xbot-cli-${pkg.version}-windows-x64.zip`;
 const assetNames = [packageFilename, zipFilename, 'SHA256SUMS.txt'];
 const digest = (data, algorithm = 'sha256', encoding = 'hex') => createHash(algorithm).update(data).digest(encoding);
 
-function git(args) {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', shell: false });
+function git(args, projectRoot = root) {
+  const result = spawnSync('git', args, { cwd: projectRoot, encoding: 'utf8', shell: false });
   if (result.error) throw result.error;
   assert.equal(result.status, 0, `git ${args.join(' ')} failed: ${result.stderr}`);
   return result.stdout.trim();
 }
 
-function validate() {
-  checkVersions();
-  assert.equal(pkg.name, '@guanzhu.me/xbot-cli', 'Unexpected npm package');
-  assert.equal(process.env.GITHUB_REPOSITORY, 'wn0x00/xbot-cli', 'Unexpected GitHub repository');
-  assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'Only stable releases may use the latest npm tag');
-  assert.equal(process.env.GITHUB_REF_TYPE, 'tag', 'Publishing requires a version tag');
-  assert.equal(process.env.GITHUB_REF_NAME, `v${pkg.version}`, 'Tag and package version differ');
-  const repository = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url;
+function validate(projectRoot = root, env = process.env) {
+  checkVersions(projectRoot);
+  const source = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8'));
+  assert.equal(source.name, '@guanzhu.me/xbot-cli', 'Unexpected npm package');
+  assert.equal(env.GITHUB_REPOSITORY, 'wn0x00/xbot-cli', 'Unexpected GitHub repository');
+  assert.match(source.version, /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, 'Only stable releases may use the latest npm tag');
+  assert.equal(env.GITHUB_REF_TYPE, 'tag', 'Publishing requires a version tag');
+  assert.equal(env.GITHUB_REF_NAME, `v${source.version}`, 'Tag and package version differ');
+  const repository = typeof source.repository === 'string' ? source.repository : source.repository?.url;
   assert.equal(repository?.replace(/^git\+/, '').replace(/\.git$/, '').replace(/\/$/, ''),
-    `https://github.com/${process.env.GITHUB_REPOSITORY}`, 'package.json repository differs');
-  const commit = git(['rev-parse', 'HEAD']);
-  assert.equal(git(['rev-parse', `refs/tags/v${pkg.version}^{commit}`]), commit, 'Checkout differs from release tag');
-  assert.equal(process.env.GITHUB_SHA, commit, 'Workflow source differs from release tag');
-  git(['merge-base', '--is-ancestor', commit, 'refs/remotes/origin/main']);
+    `https://github.com/${env.GITHUB_REPOSITORY}`, 'package.json repository differs');
+  const commit = git(['rev-parse', 'HEAD'], projectRoot);
+  assert.equal(git(['rev-parse', `refs/tags/v${source.version}^{commit}`], projectRoot), commit, 'Checkout differs from release tag');
+  assert.equal(env.GITHUB_SHA, commit, 'Workflow source differs from release tag');
+  git(['merge-base', '--is-ancestor', commit, 'refs/remotes/origin/main'], projectRoot);
   return commit;
 }
 

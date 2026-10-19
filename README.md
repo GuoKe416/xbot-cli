@@ -214,7 +214,14 @@ cargo build --release
 
 从功能分支或 Fork 提交 PR，使用 `feat(cli): ...`、`fix(flow): ...` 等 Conventional Commits 标题，并以 Squash 方式合并。开发检查、兼容性要求和 PR 说明见[贡献指南](CONTRIBUTING.md)。普通开发 PR 不手动修改版本号。
 
-Release Please 根据合并到 `main` 的变更更新发版 PR，统一维护 Rust、npm 版本及变更记录。维护者合并发版 PR 后，工作流创建版本 tag 和 GitHub Release，再触发构建、安装验证、npm OIDC 发布和 Release 附件上传。发布身份的配置、首次验收及失败重试见[发布说明](docs/releasing.md)。
+维护者决定版本，运行 `npm run release:version -- 0.6.2` 同步 Rust 和 npm 的四个版本文件，更新 `CHANGELOG.md`，将改动合并到 `main` 并等待 CI 通过。然后手动推送对应 tag：
+
+```powershell
+git tag -a v0.6.2 -m 'Release v0.6.2'
+git push origin v0.6.2
+```
+
+示例版本需替换为本次实际版本，并在已同步的 `main` 发布提交上打 tag。推送 `v<version>` 后，`publish.yml` 自动完成构建、安装验证、npm OIDC 发布，以及 GitHub Release 创建和附件上传。版本脚本只修改文件，不提交、不打 tag、不发布；普通提交和 PR 合并不会自动发版。完整步骤、发布身份和失败恢复见[发布说明](docs/releasing.md)。
 
 ## 许可
 
