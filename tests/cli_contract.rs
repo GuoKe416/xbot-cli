@@ -311,6 +311,62 @@ fn web_failed_action_and_legacy_raw_action_are_never_repeated() {
 }
 
 #[test]
+fn web_fill_reports_the_actual_error_instead_of_selector_storage_confirmation() {
+    let reason = "Error: locator.fill: Element is not an <input> or <textarea>";
+    let detail =
+        format!("{reason}\nCall log:\n  - waiting for locator('button')\n    at internal.js:1");
+    for format in ["json", "text"] {
+        let detail = detail.clone();
+        let server = MockMcp::new(move |request| {
+            assert_eq!(request["params"]["arguments"]["args"], json!(["111"]));
+            json!({"isError":true,"structuredContent":{
+                "success":false,
+                "error":detail,
+                "message":"临时元素_e74 selectors have been stored.",
+                "candidate_selectors":{"临时元素_e74":{"validate_match_count":1}}
+            }})
+        });
+        let result = invoke(
+            &["web", "fill", "e74", "111", "--format", format],
+            None,
+            Some(&server.endpoint),
+        );
+        assert_eq!(server.calls(), ["web_action"]);
+        if format == "json" {
+            let value = envelope(&result, 1);
+            assert_eq!(value["error"]["code"], "MCP_TOOL_FAILED");
+            assert!(value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .starts_with(reason));
+            assert!(value["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("internal.js"));
+            assert_eq!(value["error"]["retryable"], false);
+            assert_eq!(value["data"]["result"]["success"], false);
+            assert!(value["data"]["result"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("stored"));
+            assert!(value["error"]["hint"]
+                .as_str()
+                .unwrap()
+                .contains("snapshot"));
+        } else {
+            assert_eq!(result.status.code(), Some(1));
+            assert!(result.stdout.is_empty());
+            let text = String::from_utf8_lossy(&result.stderr);
+            assert!(text.contains(reason));
+            assert!(text.contains("snapshot"));
+            assert!(!text.contains("selectors have been stored"));
+            assert!(!text.contains("Call log:"));
+            assert!(!text.contains("internal.js"));
+        }
+    }
+}
+
+#[test]
 fn preview_rejects_bad_inputs_without_backend_and_can_read_stdin() {
     for args in [
         vec![

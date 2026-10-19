@@ -12,6 +12,10 @@ pub fn execute(group: Group, yes: bool) -> Res<CmdOut> {
     use flow_cmds as f;
     use misc_cmds as m;
     match group {
+        Group::Version => Ok((
+            json!({"name":"xbot-cli","version":env!("CARGO_PKG_VERSION")}),
+            vec![],
+        )),
         Group::Help { .. } => Err(BackendError::new("BAD_ARGS", "帮助应在执行前处理")),
         Group::Task(sub) => execute(task_as_app(sub), yes),
         Group::Tool(channel) => tool_command(channel),

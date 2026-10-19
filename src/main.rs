@@ -205,13 +205,17 @@ fn run(args: Vec<OsString>, terminal: bool) -> i32 {
     let mode = if !cli.json && cli.format == "auto" {
         match cli.group.as_ref() {
             Some(Group::Schema { .. }) => OutputMode::Json,
-            Some(Group::Guide { .. }) => OutputMode::Text,
+            Some(Group::Guide { .. } | Group::Version) => OutputMode::Text,
             _ => output::resolve_mode(&cli.format, false, terminal),
         }
     } else {
         output::resolve_mode(&cli.format, cli.json, terminal)
     };
+    let is_version = matches!(cli.group.as_ref(), Some(Group::Version));
     match dispatch(cli, path) {
+        Ok(_) if is_version && matches!(mode, OutputMode::Text) => {
+            output::write_text(&format!("xbot-cli {}", env!("CARGO_PKG_VERSION")), true, 0)
+        }
         Ok((data, _)) => emit(true, Some(data), None, mode),
         Err(error) => emit(false, None, Some(error), mode),
     }

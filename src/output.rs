@@ -279,6 +279,15 @@ fn render_error(envelope: &Value) -> String {
     let error = &envelope["error"];
     let code = error["code"].as_str().unwrap_or("ERROR");
     let message = error["message"].as_str().unwrap_or("命令执行失败");
+    // Playwright call logs can contain long DOM excerpts and stack traces.
+    // Keep the failure reason in text; JSON retains the complete backend error.
+    let message = if code == "MCP_TOOL_FAILED" {
+        message
+            .split_once("\nCall log:")
+            .map_or(message, |(reason, _)| reason.trim_end())
+    } else {
+        message
+    };
     let mut lines = vec![format!("错误 [{code}]: {message}")];
     if let Some(data) = envelope.get("data") {
         if let Some(usage) = data.get("usage").and_then(Value::as_str) {

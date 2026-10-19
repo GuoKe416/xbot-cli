@@ -84,6 +84,8 @@ xbot-cli task stop <task-id>
 
 ```bash
 xbot-cli                       # 简短根帮助
+xbot-cli version               # 离线输出一行 CLI 版本
+xbot-cli version --json        # 机器读取 data.name 和 data.version
 xbot-cli app                   # 应用操作与示例
 xbot-cli flow code             # CodeFlow 操作与示例
 xbot-cli tool studio           # 原始工具入口
@@ -103,7 +105,7 @@ xbot-cli app --json            # 紧凑结构化帮助，不是参数 schema
 | `--json` / `--format json` | 明确请求紧凑 JSON，两者等价 |
 | `--format pretty` | JSON 缩进显示，字段与紧凑 JSON 相同 |
 
-显式格式优先于自动选择。`schema` 默认始终输出 JSON；`guide` 默认输出 Markdown 文本；这两个默认值和帮助文本一样不随管道改变。请求 JSON 帮助得到当前层级的简短发现信息，不会展开完整参数 schema。`--version` 默认输出一行版本文本，追加 `--json` 则返回名称和版本字段。
+显式格式优先于自动选择。`schema` 默认始终输出 JSON；`guide` 默认输出 Markdown 文本；这两个默认值和帮助文本一样不随管道改变。请求 JSON 帮助得到当前层级的简短发现信息，不会展开完整参数 schema。`xbot-cli version`（也可使用 `xbot version`）、`--version` 和 `-V` 离线输出一行版本文本，管道中同样保持文本；追加 `--json` 则返回 `data.name` 和 `data.version`，`--format pretty` 返回缩进 JSON。`schema version` 可查看版本命令的参数定义。
 
 成功结果写 stdout、退出 0。以下为 JSON 模式示例：
 

@@ -271,15 +271,20 @@ fn backend_error(value: &Value, fallback: &str, message: &str) -> BackendError {
         })
         .unwrap_or_else(|| fallback.to_owned());
     let message = [
-        "/data/message",
         "/error/data/message",
         "/error/message",
-        "/message",
         "/error",
+        "/data/message",
+        "/message",
         "/text",
     ]
     .iter()
-    .find_map(|path| value.pointer(path).and_then(Value::as_str))
+    .find_map(|path| {
+        value
+            .pointer(path)
+            .and_then(Value::as_str)
+            .filter(|message| !message.trim().is_empty())
+    })
     .unwrap_or(message);
     BackendError::new(code, message).with_data(value.clone())
 }
@@ -563,6 +568,73 @@ mod tests {
     fn mcp_business_failure_preserves_code() {
         let error = decode_tool_result(json!({"content": [{"type": "text", "text": "{\"success\":false,\"code\":\"user_paused\",\"message\":\"paused\"}"}]})).unwrap_err();
         assert_eq!(error.code, "user_paused");
+    }
+
+    #[test]
+    fn mcp_fill_error_is_not_hidden_by_selector_storage_message() {
+        let failure = "Error: locator.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element\nCall log:\n  - locator.fill(\"111\")";
+        let result = json!({
+            "success": false,
+            "error": failure,
+            "candidate_selectors": [],
+            "message": "临时元素_e5 selectors have been stored."
+        });
+        for structured in [false, true] {
+            let mut response = json!({
+                "isError": true,
+                "content": [{"type": "text", "text": result.to_string()}]
+            });
+            if structured {
+                response["structuredContent"] = result.clone();
+            }
+            let error = decode_tool_result(response.clone()).unwrap_err();
+            assert_eq!(error.code, "MCP_TOOL_FAILED");
+            assert_eq!(error.message, failure);
+            assert_eq!(
+                error.data.unwrap(),
+                json!({"response": response, "result": result})
+            );
+        }
+    }
+
+    #[test]
+    fn mcp_successful_selector_storage_is_still_success() {
+        let result = json!({
+            "success": true,
+            "message": "临时元素_e4 selectors have been stored."
+        });
+        for response in [
+            json!({"isError": false, "structuredContent": result}),
+            json!({"isError": false, "content": [{"type": "text", "text": result.to_string()}]}),
+        ] {
+            assert_eq!(decode_tool_result(response).unwrap(), result);
+        }
+    }
+
+    #[test]
+    fn backend_empty_error_message_falls_back_to_meaningful_message() {
+        for empty_error in [json!(""), json!(" \n\t "), json!({"message": " "})] {
+            let result =
+                json!({"success": false, "error": empty_error, "message": "operation failed"});
+            let error = decode_tool_result(json!({"isError": true, "structuredContent": result}))
+                .unwrap_err();
+            assert_eq!(error.message, "operation failed");
+        }
+        let error = backend_error(&json!({"error": " ", "message": ""}), "TEST", "fallback");
+        assert_eq!(error.message, "fallback");
+    }
+
+    #[test]
+    fn backend_explicit_error_retains_code_and_original_evidence() {
+        for value in [
+            json!({"code": "ELEMENT_NOT_EDITABLE", "error": "not editable", "message": "selectors stored"}),
+            json!({"error": {"code": "ELEMENT_NOT_EDITABLE", "message": "not editable"}, "data": {"message": "selectors stored"}}),
+        ] {
+            let error = backend_error(&value, "MCP_TOOL_FAILED", "fallback");
+            assert_eq!(error.code, "ELEMENT_NOT_EDITABLE");
+            assert_eq!(error.message, "not editable");
+            assert_eq!(error.data.unwrap(), value);
+        }
     }
 
     #[test]

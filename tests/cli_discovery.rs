@@ -139,7 +139,13 @@ fn explicit_help_forms_discover_the_same_command() {
 
 #[test]
 fn version_is_one_text_line_or_explicit_json_without_backend_access() {
-    for args in [vec!["--version"], vec!["-V"]] {
+    for args in [
+        vec!["--version"],
+        vec!["-V"],
+        vec!["version"],
+        vec!["version", "--format", "auto"],
+        vec!["version", "--format", "text"],
+    ] {
         let body = stdout(&invoke(&args));
         assert_eq!(body.lines().count(), 1);
         assert_eq!(body.trim(), concat!("xbot-cli ", env!("CARGO_PKG_VERSION")));
@@ -148,6 +154,39 @@ fn version_is_one_text_line_or_explicit_json_without_backend_access() {
     let value = json_success(&invoke(&["--json", "--version"]));
     assert_eq!(value["data"]["name"], "xbot-cli");
     assert_eq!(value["data"]["version"], env!("CARGO_PKG_VERSION"));
+    for args in [
+        vec!["version", "--json"],
+        vec!["--json", "version"],
+        vec!["version", "--format", "json"],
+        vec!["version", "--format", "pretty"],
+    ] {
+        assert_eq!(json_success(&invoke(&args)), value);
+    }
+}
+
+#[test]
+fn version_subcommand_is_discoverable_and_validates_arguments() {
+    let root = json_success(&invoke(&["schema"]));
+    assert!(root["data"]["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|command| command["name"] == "version"));
+    let schema = json_success(&invoke(&["schema", "version"]));
+    assert_eq!(schema["data"]["name"], "version");
+    assert_eq!(schema["data"]["context"], "local");
+    assert_eq!(schema["data"]["supports_dry_run"], false);
+    let help = stdout(&invoke(&["version", "--help"]));
+    assert!(help.contains("Usage: xbot-cli version"));
+    for args in [
+        vec!["version", "unexpected", "--json"],
+        vec!["version", "--unknown", "--json"],
+        vec!["version", "--format", "invalid", "--json"],
+        vec!["version", "--dry-run", "--json"],
+        vec!["version", "--expect-app", "anything", "--json"],
+    ] {
+        json_error(&args);
+    }
 }
 
 #[test]

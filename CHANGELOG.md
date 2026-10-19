@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.7.1](https://github.com/wn0x00/xbot-cli/compare/v0.7.0...v0.7.1) (2026-10-19)
+
+- Show the actual backend error when a browser action fails; selector-storage messages no longer hide fill failures. Keep the complete response and call log in JSON while showing a concise error and snapshot guidance in text.
+- Add offline `xbot version` and `xbot-cli version` commands, with the same JSON result as `--version`.
+
 ## [0.7.0](https://github.com/wn0x00/xbot-cli/compare/v0.6.1...v0.7.0) (2026-10-19)
 
 - Add the `xbot` command and a `web` interface with direct element actions, keyboard input and navigation backed by ShadowBot; retain `xbot-cli` and `browser` aliases.

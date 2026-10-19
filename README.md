@@ -14,10 +14,12 @@ Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判�
 
 ```powershell
 npm install -g '@guanzhu.me/xbot-cli'
-xbot --version
+xbot version
 xbot
 xbot status --json
 ```
+
+`xbot version` 和 `xbot-cli version` 离线输出当前 CLI 版本，`--version` / `-V` 仍可使用。版本默认输出一行文本，即使接入管道也不变；Agent 可用 `xbot version --json` 读取 `data.name` 和 `data.version`。
 
 不进行全局安装也可调用：
 

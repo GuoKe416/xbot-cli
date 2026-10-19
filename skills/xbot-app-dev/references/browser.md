@@ -19,6 +19,8 @@ xbot web click e7 --json
 
 元素 ref 必须来自当前页面的快照，不能编造或复用其他页面的编号。页面变化后依据返回的新快照选择目标；保留后端的快照元数据，快照可能只包含增量变化，不能默认是完整页面。这里只接受快照 ref，不把 CSS 或 Playwright locator 表达式当作 ref。
 
+排查填写失败时，读取真正的 `error.message`，不要把 `selectors have been stored` 当成填写成功；它只说明后端暂存了选择器。先获取当前快照，再选择可编辑元素（例如 `textbox`）的 ref。点击后若只得到 `generic` 等很少的快照内容，单独获取 `web snapshot` 检查页面状态，不重复点击。
+
 ## 常用命令
 
 下列 `e4` 都是语法占位示例。执行前替换为实际 ref；解析业务结果时显式加 `--json`。

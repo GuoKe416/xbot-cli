@@ -34,6 +34,8 @@ pub(crate) struct Cli {
 
 #[derive(Subcommand)]
 pub(crate) enum Group {
+    /// 输出 CLI 版本
+    Version,
     /// 查看客户端与当前应用状态
     Status,
     /// 深度检查 shell-cli / MCP / View 通道

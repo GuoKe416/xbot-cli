@@ -40,6 +40,8 @@ xbot-cli flow wait <run-id> --timeout 600 --expect-app <app-id>
 
 ```bash
 xbot-cli                       # 简短根帮助，退出 0
+xbot-cli version               # 离线输出一行 CLI 版本
+xbot-cli version --json        # 机器读取 data.name 和 data.version
 xbot-cli app                   # 分组帮助，退出 0
 xbot-cli flow code             # 嵌套分组帮助，退出 0
 xbot-cli tool studio           # 原始工具分组帮助，退出 0
@@ -48,7 +50,7 @@ xbot-cli app --json            # 当前分组的结构化帮助，不是完整 s
 xbot-cli status --json         # 显式机器结果
 ```
 
-裸根命令和纯分组是发现请求，默认显示简短文本帮助；`-h`、`--help`、`help <path>` 默认显示详细文本帮助。帮助写 stdout、退出 0，不访问后端、不检查登录、不初始化应用，即使在管道中也默认保持文本。`--version` 默认返回一行版本文本，追加 `--json` 则返回名称和版本字段。
+裸根命令和纯分组是发现请求，默认显示简短文本帮助；`-h`、`--help`、`help <path>` 默认显示详细文本帮助。帮助写 stdout、退出 0，不访问后端、不检查登录、不初始化应用，即使在管道中也默认保持文本。`xbot-cli version`（也可使用 `xbot version`）、`--version` 和 `-V` 离线返回一行版本文本，管道中同样保持文本；追加 `--json` 则返回 `data.name` 和 `data.version`，`--format pretty` 返回缩进 JSON。`schema version` 可查看版本命令的参数定义。
 
 业务结果默认 `--format auto`：stdout 是终端时为简洁文本，非终端时为紧凑 JSON。需要解析结果时显式使用 `--json`，它等价于 `--format json`。`--format text` 强制文本；`--format pretty` 仍是 JSON，仅增加缩进。显式格式优先于自动选择，也可用于帮助、schema 和 guide。
 

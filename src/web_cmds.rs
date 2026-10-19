@@ -45,7 +45,16 @@ impl PreparedWeb {
     }
 
     pub fn execute(self) -> Res<CmdOut> {
-        let response = core::mcp_browser(self.tool, self.arguments, self.timeout)?;
+        let response = core::mcp_browser(self.tool, self.arguments, self.timeout).map_err(|error| {
+            if self.command == "web.fill"
+                && error.code == "MCP_TOOL_FAILED"
+                && error.hint.is_none()
+            {
+                error.with_hint("先运行 xbot web snapshot 查看当前页面，确认使用最新快照中可编辑元素（例如 textbox）的编号；选择器已保存不代表填写成功，不要盲目重试")
+            } else {
+                error
+            }
+        })?;
         let mut data = response_object(response);
         data["command"] = json!(self.command);
         if self.command == "web.snapshot" {

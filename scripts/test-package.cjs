@@ -40,6 +40,14 @@ try {
     const version = invokeShim(['--version']);
     assert.equal(version.stdout.trim(), `xbot-cli ${manifest.version}`);
     assert.equal(version.stderr, '');
+    const versionCommand = invokeShim(['version']);
+    assert.equal(versionCommand.stdout, version.stdout, `${command} version must match --version`);
+    assert.equal(versionCommand.stderr, '');
+    const versionJson = invokeShim(['version', '--json']);
+    assert.deepEqual(JSON.parse(versionJson.stdout), {
+      data: { name: 'xbot-cli', version: manifest.version }, ok: true,
+    });
+    assert.equal(versionJson.stderr, '');
     for (const args of [[], ['--help'], ['app'], ['web'], ['browser']]) {
       const help = invokeShim(args);
       assert.match(help.stdout, /Usage:/, `${command} ${args.join(' ')} must show help`);
