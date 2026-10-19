@@ -210,6 +210,12 @@ cargo build --release
 
 源码托管于 [wn0x00/xbot-cli](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`@guanzhu.me/xbot-cli`](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)，CLI 命令名为 `xbot-cli`。配置发布身份及正式发布步骤见[发布说明](docs/releasing.md)。
 
+## 参与开发与发版
+
+从功能分支或 Fork 提交 PR，使用 `feat(cli): ...`、`fix(flow): ...` 等 Conventional Commits 标题，并以 Squash 方式合并。开发检查、兼容性要求和 PR 说明见[贡献指南](CONTRIBUTING.md)。普通开发 PR 不手动修改版本号。
+
+Release Please 根据合并到 `main` 的变更更新发版 PR，统一维护 Rust、npm 版本及变更记录。维护者合并发版 PR 后，工作流创建版本 tag 和 GitHub Release，再触发构建、安装验证、npm OIDC 发布和 Release 附件上传。发布身份的配置、首次验收及失败重试见[发布说明](docs/releasing.md)。
+
 ## 许可
 
 本项目使用 [MIT License](LICENSE)。

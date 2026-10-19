@@ -1,0 +1,80 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Prepare release PR and dispatch publication
+    if: github.repository == 'wn0x00/xbot-cli' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      actions: write
+    steps:
+      # This job only uses GitHub APIs. It never checks out or executes PR code.
+      - name: Update release PR or create release
+        id: release
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # Explicit dispatch also works for branches created by GITHUB_TOKEN.
+      # ci.yml has read-only permissions and receives no npm publish identity.
+      - name: Run CI for the generated release PR
+        if: steps.release.outputs.prs_created == 'true'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}
+        with:
+          script: |
+            const prs = JSON.parse(process.env.RELEASE_PRS || '[]');
+            for (const candidate of prs) {
+              const { data: pr } = await github.rest.pulls.get({
+                ...context.repo, pull_number: candidate.number,
+              });
+              const repository = `${context.repo.owner}/${context.repo.repo}`;
+              if (pr.state !== 'open' || pr.base.ref !== 'main' ||
+                  pr.head.repo?.full_name !== repository ||
+                  pr.user.login !== 'github-actions[bot]' ||
+                  pr.head.ref !== 'release-please--branches--main' ||
+                  !pr.labels.some(label => label.name === 'autorelease: pending')) {
+                throw new Error(`Refusing to dispatch CI for unexpected PR #${pr.number}`);
+              }
+              await github.rest.actions.createWorkflowDispatch({
+                ...context.repo, workflow_id: 'ci.yml', ref: pr.head.ref,
+              });
+              core.info(`CI dispatched for PR #${pr.number}: ${pr.head.ref} at ${pr.head.sha}`);
+            }
+
+      # Tags created by GITHUB_TOKEN do not trigger a second push workflow.
+      - name: Publish the newly created release
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            if (!/^v\d+\.\d+\.\d+$/.test(tag || '')) {
+              throw new Error(`Unexpected stable release tag: ${tag}`);
+            }
+            await github.rest.actions.createWorkflowDispatch({
+              ...context.repo, workflow_id: 'publish.yml', ref: tag,
+            });
+            core.info(`Publication dispatched for ${tag}`);

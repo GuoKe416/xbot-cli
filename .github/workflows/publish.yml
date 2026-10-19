@@ -1,9 +1,9 @@
-name: Publish to npm
+name: Publish release
 
-# Run explicitly on a version tag, for example:
-# gh workflow run publish.yml --ref v0.6.1
 on:
   workflow_dispatch:
+  push:
+    tags: ['v*']
 
 permissions:
   contents: read
@@ -18,8 +18,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     outputs:
-      filename: ${{ steps.package.outputs.filename }}
-      sha256: ${{ steps.package.outputs.sha256 }}
+      manifest_sha256: ${{ steps.package.outputs.manifest_sha256 }}
       artifact_id: ${{ steps.artifact.outputs.artifact-id }}
     defaults:
       run:
@@ -27,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: actions/setup-node@v7
@@ -35,19 +35,8 @@ jobs:
           architecture: x64
           package-manager-cache: false
 
-      - name: Validate release tag and repository
-        run: |
-          node --input-type=commonjs -e '
-            const pkg = require("./package.json");
-            if (process.env.GITHUB_REF_TYPE !== "tag" || process.env.GITHUB_REF_NAME !== `v${pkg.version}`) {
-              throw new Error(`Run this workflow on tag v${pkg.version}; branches cannot publish.`);
-            }
-            if (pkg.name !== "@guanzhu.me/xbot-cli") throw new Error("Unexpected npm package name");
-            const expected = `https://github.com/${process.env.GITHUB_REPOSITORY}`;
-            const repository = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
-            const actual = repository?.replace(/^git\+/, "").replace(/\.git$/, "").replace(/\/$/, "");
-            if (actual !== expected) throw new Error(`package.json repository.url must match ${expected}`);
-          '
+      - name: Validate release tag, versions, repository and main ancestry
+        run: node scripts/release-artifacts.cjs validate
 
       - name: Install Rust toolchain
         run: |
@@ -73,34 +62,24 @@ jobs:
       - name: Pack and test installed package
         run: npm run test:package
 
-      - name: Record tested package checksum
+      - name: Prepare release assets from the tested build
         id: package
-        run: |
-          $package = Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json
-          $packageSlug = $package.name -replace '^@', '' -replace '/', '-'
-          $filename = "$packageSlug-$($package.version).tgz"
-          $archive = Join-Path dist $filename
-          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
-            throw "Package integration test did not leave the expected archive: $archive"
-          }
-          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          "filename=$filename" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "sha256=$digest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        run: node scripts/release-artifacts.cjs prepare
 
-      - name: Upload tested npm package
+      - name: Upload tested release assets
         id: artifact
         uses: actions/upload-artifact@v7
         with:
-          name: npm-package-${{ github.run_id }}-${{ github.run_attempt }}
-          path: dist/${{ steps.package.outputs.filename }}
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/release/*
           if-no-files-found: error
           retention-days: 14
 
   publish:
-    name: Publish tested archive with OIDC
+    name: Publish tested npm archive with OIDC
     needs: build
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: npm
     permissions:
       contents: read
@@ -109,6 +88,10 @@ jobs:
       run:
         shell: pwsh
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -117,21 +100,57 @@ jobs:
           package-manager-cache: false
 
       - name: Use an OIDC-capable npm version
-        run: npm install --global npm@11.8.0 --ignore-scripts
+        run: |
+          $npmTools = Join-Path $env:RUNNER_TEMP 'npm-cli'
+          npm install --prefix $npmTools npm@11.21.1 --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $npmCli = Join-Path $npmTools 'node_modules/npm/bin/npm-cli.js'
+          $version = node $npmCli --version
+          if ($LASTEXITCODE -ne 0 -or $version -ne '11.21.1') { throw 'Required npm version is unavailable' }
+          "npm_execpath=$npmCli" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Download the tested archive
+      - name: Download tested release assets
         uses: actions/download-artifact@v8
         with:
           artifact-ids: ${{ needs.build.outputs.artifact_id }}
-          path: dist
+          path: dist/release
           merge-multiple: true
 
-      - name: Verify checksum and publish the same archive
+      - name: Verify and publish the tested archive
         env:
-          PACKAGE_FILENAME: ${{ needs.build.outputs.filename }}
-          PACKAGE_SHA256: ${{ needs.build.outputs.sha256 }}
-        run: |
-          $archive = Join-Path dist $env:PACKAGE_FILENAME
-          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($digest -ne $env:PACKAGE_SHA256) { throw 'Tested package checksum mismatch' }
-          npm publish $archive --access public --ignore-scripts
+          RELEASE_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha256 }}
+        run: node scripts/release-publish.cjs npm
+
+  github-release:
+    name: Attach the same artifacts to GitHub Release
+    needs: [build, publish]
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          architecture: x64
+          package-manager-cache: false
+
+      - name: Download tested release assets
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: dist/release
+          merge-multiple: true
+
+      - name: Verify and upload release attachments
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_MANIFEST_SHA256: ${{ needs.build.outputs.manifest_sha256 }}
+        run: node scripts/release-publish.cjs github
