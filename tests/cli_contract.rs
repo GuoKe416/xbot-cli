@@ -2,7 +2,7 @@
 //! No installed client, application, browser, or account is used.
 use serde_json::{json, Value};
 use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::process::{Command, Output, Stdio};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -444,6 +444,9 @@ impl MockMcp {
                     }
                     Err(e) => panic!("mock accept: {e}"),
                 };
+                // Winsock accepted sockets inherit the listener's nonblocking mode.
+                // Keep accept polling cancellable, but wait for each request's bytes.
+                stream.set_nonblocking(false).unwrap();
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
                     .unwrap();
@@ -496,8 +499,84 @@ impl MockMcp {
 impl Drop for MockMcp {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
-        self.worker.take().unwrap().join().unwrap();
+        if let Some(worker) = self.worker.take() {
+            if let Err(failure) = worker.join() {
+                // A response assertion may already be unwinding after a worker error.
+                // Preserve that failure instead of aborting the entire test process.
+                if !thread::panicking() {
+                    std::panic::resume_unwind(failure);
+                }
+            }
+        }
     }
+}
+
+#[test]
+fn mock_mcp_accepts_delayed_request_headers_and_body() {
+    let server = MockMcp::new(
+        |request| json!({"structuredContent":{"received":request["params"]["arguments"]}}),
+    );
+    let address = server
+        .endpoint
+        .strip_prefix("http://")
+        .unwrap()
+        .strip_suffix("/mcp")
+        .unwrap();
+    let mut stream = TcpStream::connect(address).unwrap();
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .unwrap();
+    let body = json!({
+        "jsonrpc":"2.0", "id":1, "method":"tools/call",
+        "params":{"name":"delayed.request","arguments":{"value":"once"}}
+    })
+    .to_string();
+
+    // A TCP connection can arrive before either the HTTP headers or body.
+    // Nonblocking accepted sockets on Windows must not treat this as failure.
+    thread::sleep(Duration::from_millis(100));
+    write!(
+        stream,
+        "POST /mcp HTTP/1.1\r\nHost: {address}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )
+    .unwrap();
+    thread::sleep(Duration::from_millis(100));
+    stream.write_all(body.as_bytes()).unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).unwrap();
+    let payload = response.split_once("\r\n\r\n").unwrap().1;
+    let result: Value = serde_json::from_str(payload).unwrap();
+    assert_eq!(
+        result["result"]["structuredContent"]["received"]["value"],
+        "once"
+    );
+    assert_eq!(server.calls(), ["delayed.request"]);
+}
+
+#[test]
+fn mock_cleanup_preserves_primary_panic_and_propagates_worker_failure() {
+    let panicking_mock = || MockMcp {
+        endpoint: String::new(),
+        requests: Arc::new(Mutex::new(Vec::new())),
+        stop: Arc::new(AtomicBool::new(false)),
+        worker: Some(thread::spawn(|| panic!("mock worker failure"))),
+    };
+    let failure = std::panic::catch_unwind(|| drop(panicking_mock())).unwrap_err();
+    assert_eq!(failure.downcast_ref::<&str>(), Some(&"mock worker failure"));
+
+    let failure = std::panic::catch_unwind(|| {
+        let _mock = panicking_mock();
+        panic!("primary test failure");
+    })
+    .unwrap_err();
+    assert_eq!(
+        failure.downcast_ref::<&str>(),
+        Some(&"primary test failure")
+    );
 }
 
 fn studio_fixture(request: &Value) -> Value {
