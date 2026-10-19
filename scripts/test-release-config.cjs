@@ -29,6 +29,7 @@ const nextMinor = `${major}.${minor + 1}.0`;
 const nextBreaking = major === 0 ? nextMinor : `${major + 1}.0.0`;
 
 async function simulate(message, expected) {
+  let mergedPullRequest;
   const github = {
     repository: { owner: 'wn0x00', repo: 'xbot-cli', defaultBranch: 'main' },
     async getFileContentsOnBranch(path) { return { parsedContent: source(path) }; },
@@ -39,6 +40,9 @@ async function simulate(message, expected) {
     async *mergeCommitIterator() {
       yield { sha: 'newcommit', message, files: ['src/main.rs'] };
       yield { sha: 'previous', message: `chore: release ${previous}`, files: ['package.json'] };
+    },
+    async *pullRequestIterator() {
+      if (mergedPullRequest) yield mergedPullRequest;
     },
   };
   const manifest = await Manifest.fromManifest(github, 'main');
@@ -78,7 +82,23 @@ async function simulate(message, expected) {
   const after = toml.parse(files['Cargo.lock']).package.filter(crate => crate.name !== 'xbot-cli');
   assert.deepEqual(after, before);
   assert.equal(toml.parse(files['Cargo.lock']).package.find(crate => crate.name === 'xbot-cli').version, expected);
-  console.log(`${message}: ${expected}; five files synchronized; ${before.length} Cargo dependencies unchanged`);
+  const mergeSha = '1234567890abcdef1234567890abcdef12345678';
+  mergedPullRequest = {
+    number: 1,
+    title: pr.title.toString(),
+    body: pr.body.toString(),
+    headBranchName: pr.headRefName,
+    baseBranchName: 'main',
+    labels: pr.labels,
+    files: pr.updates.map(update => update.path),
+    sha: mergeSha,
+  };
+  const releases = await manifest.buildReleases();
+  assert.equal(releases.length, 1, 'The generated PR must remain recognizable after merge');
+  assert.equal(releases[0].tag.toString(), `v${expected}`);
+  assert.equal(releases[0].sha, mergeSha, 'Release must point to the exact merged commit');
+  assert.match(releases[0].notes, /Bug Fixes|Features|BREAKING CHANGES/);
+  console.log(`${message}: ${expected}; five files synchronized; ${before.length} Cargo dependencies unchanged; merged PR resolves to v${expected} at the exact merge commit`);
 }
 (async () => {
   await simulate('fix(cli): repair argument validation', nextPatch);
