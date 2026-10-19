@@ -94,9 +94,220 @@ fn schemas_support_canonical_and_legacy_nested_paths() {
         vec!["schema", "mcp", "call"],
         vec!["schema", "flow", "visual", "disable"],
         vec!["schema", "code", "write"],
+        vec!["schema", "web", "click"],
+        vec!["schema", "browser", "fill"],
     ] {
         envelope(&invoke(&args, None, None), 0);
     }
+}
+
+#[test]
+fn web_aliases_share_help_schema_and_offline_previews() {
+    for group in ["web", "browser"] {
+        let schema = envelope(&invoke(&["schema", group, "click"], None, None), 0);
+        assert_eq!(schema["data"]["name"], "web click");
+        assert_eq!(schema["data"]["supports_dry_run"], true);
+        assert_eq!(schema["data"]["effects"], json!(["interact"]));
+        let preview = envelope(
+            &invoke(
+                &[
+                    group,
+                    "fill",
+                    "e4",
+                    "literal & | %PATH% $()",
+                    "--dry-run",
+                    "--json",
+                ],
+                None,
+                None,
+            ),
+            0,
+        );
+        assert_eq!(preview["data"]["dry_run"], true);
+        assert!(preview["data"]
+            .to_string()
+            .contains("literal & | %PATH% $()"));
+    }
+    for (alias, expected) in [
+        ("attach", "active"),
+        ("back", "go-back"),
+        ("forward", "go-forward"),
+    ] {
+        let schema = envelope(&invoke(&["schema", "web", alias], None, None), 0);
+        assert_eq!(schema["data"]["name"], format!("web {expected}"));
+    }
+}
+
+#[test]
+fn web_short_commands_send_literal_playwright_arguments_once() {
+    for (cli, target, method, args) in [
+        (
+            vec![
+                "fill",
+                "e4",
+                "中文 & $()",
+                "--name",
+                "姓名",
+                "--no-snapshot",
+            ],
+            "locator",
+            "fill",
+            json!(["中文 & $()"]),
+        ),
+        (
+            vec!["select", "e9", "red", "blue", "--no-snapshot"],
+            "locator",
+            "selectOption",
+            json!([["red", "blue"]]),
+        ),
+        (
+            vec!["press", "Control+A", "--ref", "e4", "--no-snapshot"],
+            "locator",
+            "press",
+            json!(["Control+A"]),
+        ),
+        (
+            vec!["press", "Enter", "--no-snapshot"],
+            "keyboard",
+            "press",
+            json!(["Enter"]),
+        ),
+        (
+            vec!["type", "hello", "--no-snapshot"],
+            "keyboard",
+            "type",
+            json!(["hello"]),
+        ),
+        (
+            vec!["goto", "example.com/path", "--no-snapshot"],
+            "page",
+            "goto",
+            json!(["https://example.com/path"]),
+        ),
+        (
+            vec!["go-back", "--no-snapshot"],
+            "page",
+            "goBack",
+            json!([]),
+        ),
+        (
+            vec!["go-forward", "--no-snapshot"],
+            "page",
+            "goForward",
+            json!([]),
+        ),
+        (vec!["reload", "--no-snapshot"], "page", "reload", json!([])),
+        (vec!["close"], "page", "close", json!([])),
+    ] {
+        let server = MockMcp::new(|_| json!({"structuredContent":{"success":true}}));
+        let mut command = vec!["web"];
+        command.extend(cli);
+        envelope(&invoke(&command, None, Some(&server.endpoint)), 0);
+        assert_eq!(server.calls(), ["web_action"]);
+        let requests = server.requests.lock().unwrap();
+        let arguments = &requests[0]["params"]["arguments"];
+        assert_eq!(arguments["target"], target);
+        assert_eq!(arguments["method"], method);
+        assert_eq!(arguments["args"], args);
+        if target == "locator" {
+            assert!(arguments["selector_name"]
+                .as_str()
+                .is_some_and(|name| !name.is_empty()));
+        }
+    }
+}
+
+#[test]
+fn web_open_takes_a_snapshot_and_preserves_backend_fields_and_refs() {
+    let server = MockMcp::new(|request| match request["params"]["name"].as_str() {
+        Some("web_create") => {
+            assert_eq!(
+                request["params"]["arguments"]["url"],
+                "https://example.com/"
+            );
+            assert!(request["params"]["arguments"].get("mode").is_none());
+            json!({"structuredContent":{"success":true,"url":"https://example.com/","message":"opened"}})
+        }
+        Some("web_snapshot") => {
+            json!({"structuredContent":{"success":true,"result":"### AccTree\n- textbox Name [e4]\n","acc_tree_meta":{"kind":"full","diff_index":0}}})
+        }
+        _ => panic!("unexpected browser call"),
+    });
+    let value = envelope(
+        &invoke(
+            &["web", "open", "example.com"],
+            None,
+            Some(&server.endpoint),
+        ),
+        0,
+    );
+    assert_eq!(server.calls(), ["web_create", "web_snapshot"]);
+    assert_eq!(value["data"]["success"], true);
+    assert_eq!(value["data"]["url"], "https://example.com/");
+    assert_eq!(value["data"]["snapshot"]["acc_tree_meta"]["kind"], "full");
+    assert!(value["data"]["snapshot"]["result"]
+        .as_str()
+        .unwrap()
+        .contains("[e4]"));
+}
+
+#[test]
+fn web_snapshot_failure_does_not_turn_a_successful_click_into_a_retry() {
+    let server = MockMcp::new(|request| match request["params"]["name"].as_str() {
+        Some("web_action") => {
+            assert_eq!(request["params"]["arguments"]["kwargs"]["button"], "right");
+            json!({"structuredContent":{"success":true,"result":"clicked"}})
+        }
+        Some("web_snapshot") => {
+            json!({"isError":true,"structuredContent":{"success":false,"error":"snapshot unavailable"}})
+        }
+        _ => panic!("unexpected browser call"),
+    });
+    let value = envelope(
+        &invoke(
+            &["web", "click", "e5", "--button", "right"],
+            None,
+            Some(&server.endpoint),
+        ),
+        0,
+    );
+    assert_eq!(server.calls(), ["web_action", "web_snapshot"]);
+    assert_eq!(value["data"]["applied"], true);
+    assert!(value["data"].get("warning").is_some());
+    assert!(value["data"].to_string().contains("snapshot unavailable"));
+}
+
+#[test]
+fn web_failed_action_and_legacy_raw_action_are_never_repeated() {
+    let server = MockMcp::new(
+        |_| json!({"isError":true,"structuredContent":{"success":false,"error":"stale ref"}}),
+    );
+    let value = envelope(
+        &invoke(
+            &["web", "fill", "e4", "hello"],
+            None,
+            Some(&server.endpoint),
+        ),
+        1,
+    );
+    assert_eq!(value["error"]["retryable"], false);
+    assert_eq!(server.calls(), ["web_action"]);
+
+    let server = MockMcp::new(|_| json!({"structuredContent":{"success":true,"result":"legacy"}}));
+    let value = envelope(
+        &invoke(
+            &[
+                "browser",
+                "act",
+                "{\"target\":\"keyboard\",\"method\":\"press\",\"args\":[\"Tab\"]}",
+            ],
+            None,
+            Some(&server.endpoint),
+        ),
+        0,
+    );
+    assert_eq!(server.calls(), ["web_action"]);
+    assert_eq!(value["data"]["result"], "legacy");
 }
 
 #[test]

@@ -26,13 +26,32 @@ try {
   // Local tarball, no dependencies, and lifecycle scripts disabled: no compiler or download.
   npm(['install', '--global', '--prefix', prefix, '--ignore-scripts', '--offline', '--no-audit', '--no-fund', tarball]);
   const launcher = join(prefix, 'node_modules', ...manifest.name.split('/'), 'bin', 'xbot-cli.cjs');
-  const shim = join(prefix, 'xbot-cli.cmd');
-  assert.ok(existsSync(shim), 'npm must create its command shim');
-  const shimResult = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-    `& '${shim.replaceAll("'", "''")}' --version; exit $LASTEXITCODE`], {
-    cwd: workdir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  assert.equal(shimResult.stdout.trim(), `xbot-cli ${manifest.version}`);
+  for (const command of ['xbot', 'xbot-cli']) {
+    const shim = join(prefix, `${command}.cmd`);
+    assert.ok(existsSync(shim), `npm must create ${command}.cmd`);
+    function invokeShim(args) {
+      const quotedArgs = args.map(arg => `'${arg.replaceAll("'", "''")}'`).join(' ');
+      return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `& '${shim.replaceAll("'", "''")}' ${quotedArgs}; exit $LASTEXITCODE`], {
+        cwd: workdir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, XBOT_SHELL_CLI: join(scratch, 'missing-backend.exe') },
+      });
+    }
+    const version = invokeShim(['--version']);
+    assert.equal(version.stdout.trim(), `xbot-cli ${manifest.version}`);
+    assert.equal(version.stderr, '');
+    for (const args of [[], ['--help'], ['app'], ['web'], ['browser']]) {
+      const help = invokeShim(args);
+      assert.match(help.stdout, /Usage:/, `${command} ${args.join(' ')} must show help`);
+      assert.equal(help.stderr, '');
+    }
+    const webPreview = invokeShim(['web', 'open', 'example.com', '--dry-run', '--json']);
+    const webData = JSON.parse(webPreview.stdout).data;
+    assert.equal(webData.dry_run, true);
+    assert.equal(webData.arguments.url, 'https://example.com/');
+    assert.equal(webData.snapshot_after, true);
+    assert.equal(webPreview.stderr, '');
+  }
   function invoke(args, input) {
     const result = spawnSync(process.execPath, [launcher, ...args], {
       cwd: workdir, input, encoding: 'utf8', shell: false,

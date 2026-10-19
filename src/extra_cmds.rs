@@ -86,30 +86,6 @@ pub fn code_edit_prepared(
 
 // ---------- browser(browser-use-mcp) ----------
 
-pub fn browser_open(url: &str, mode: Option<&str>) -> Res<CmdOut> {
-    let mut args = json!({"url": url});
-    if let Some(m) = mode {
-        args["mode"] = json!(m);
-    }
-    let r = core::mcp_browser("web_create", args, 120)?;
-    Ok((
-        r,
-        vec!["xbot-cli browser snapshot   # 拿页面可访问性快照(元素带 refid)".into()],
-    ))
-}
-
-pub fn browser_active() -> Res<CmdOut> {
-    Ok((
-        core::mcp_browser("web_get_active", json!({}), 60)?,
-        vec!["xbot-cli browser snapshot   # 拿页面快照".into()],
-    ))
-}
-
-pub fn browser_snapshot() -> Res<CmdOut> {
-    Ok((core::mcp_browser("web_snapshot", json!({}), 60)?,
-        vec!["xbot-cli browser act '{\"target\":\"locator\",\"method\":\"click\",\"refid\":\"e12\"}'".into()]))
-}
-
 pub fn browser_act(args_json: &str) -> Res<CmdOut> {
     browser_act_prepared(input::browser_args(Some(args_json))?)
 }

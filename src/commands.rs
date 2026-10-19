@@ -2,7 +2,7 @@
 use crate::app_cmds::CmdOut;
 use crate::cli::*;
 use crate::core::{self, BackendError, Res};
-use crate::{app_cmds, extra_cmds, flow_cmds, guide_cmds, misc_cmds, schema_cmds};
+use crate::{app_cmds, extra_cmds, flow_cmds, guide_cmds, misc_cmds, schema_cmds, web_cmds};
 use clap::CommandFactory;
 use serde_json::{json, Value};
 
@@ -109,11 +109,6 @@ pub fn execute(group: Group, yes: bool) -> Res<CmdOut> {
             }
         },
         Group::Browser(sub) => match sub {
-            BrowserSub::Open { url, mode } => {
-                e::browser_open(url.as_deref().unwrap_or("about:blank"), mode.as_deref())
-            }
-            BrowserSub::Active => e::browser_active(),
-            BrowserSub::Snapshot => e::browser_snapshot(),
             BrowserSub::Act { args_json } => e::browser_act(&args_json),
             BrowserSub::Eval { code } => e::browser_eval(&code),
             BrowserSub::Tools { full } => e::browser_tools(full),
@@ -123,6 +118,9 @@ pub fn execute(group: Group, yes: bool) -> Res<CmdOut> {
                 args_json,
                 timeout,
             } => e::browser_call(&tool, args_json.as_deref(), timeout),
+            sub => web_cmds::prepare(&sub)?
+                .ok_or_else(|| BackendError::new("BAD_ARGS", "未知网页操作"))?
+                .execute(),
         },
         Group::Wiki(sub) => match sub {
             WikiSub::List => e::wiki_list(),

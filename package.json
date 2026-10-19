@@ -21,6 +21,7 @@
     "automation"
   ],
   "bin": {
+    "xbot": "bin/xbot-cli.cjs",
     "xbot-cli": "bin/xbot-cli.cjs"
   },
   "files": [

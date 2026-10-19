@@ -456,7 +456,7 @@ fn decode_rpc_body(body: &str, event_stream: bool) -> Res<Value> {
             let value: Value = serde_json::from_str(&payload).map_err(|e| {
                 BackendError::new("MCP_BAD_JSON", format!("SSE data 不是 JSON: {e}"))
             })?;
-            if value.get("id") == Some(&json!(1)) {
+            if is_current_rpc_id(value.get("id")) {
                 found = Some(value);
             }
         }
@@ -468,7 +468,7 @@ fn decode_rpc_body(body: &str, event_stream: bool) -> Res<Value> {
         })?
     };
     if response.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
-        || response.get("id") != Some(&json!(1))
+        || !is_current_rpc_id(response.get("id"))
     {
         return Err(
             BackendError::new("MCP_BAD_RESPONSE", "JSON-RPC 版本或响应 ID 不匹配")
@@ -486,6 +486,12 @@ fn decode_rpc_body(body: &str, event_stream: bool) -> Res<Value> {
             BackendError::new("MCP_BAD_RESPONSE", "JSON-RPC 响应缺少非空 result")
                 .with_data(response)
         })
+}
+
+fn is_current_rpc_id(id: Option<&Value>) -> bool {
+    // Every request currently uses the exactly representable number 1. Some MCP
+    // servers serialize it as 1.0; JSON-RPC string IDs must still remain distinct.
+    id.and_then(Value::as_f64) == Some(1.0)
 }
 
 #[cfg(test)]
@@ -574,14 +580,73 @@ mod tests {
     }
 
     #[test]
+    fn rpc_accepts_equivalent_numeric_id_representations() {
+        for id in ["1", "1.0", "1e0", "10e-1"] {
+            let response = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"tools":[]}}}}"#);
+            for event_stream in [false, true] {
+                let body = if event_stream {
+                    format!("data: {response}\n\n")
+                } else {
+                    response.clone()
+                };
+                assert_eq!(
+                    decode_rpc_body(&body, event_stream).unwrap(),
+                    json!({"tools": []}),
+                    "id={id}, event_stream={event_stream}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rpc_rejects_non_matching_id_types_and_numbers() {
+        for id in [
+            r#""1""#, "1.5", "1.0001", "2", "0", "-1", "null", "true", "{}", "[]",
+        ] {
+            let response = format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{}}}}"#);
+            for event_stream in [false, true] {
+                let body = if event_stream {
+                    format!("data: {response}\n\n")
+                } else {
+                    response.clone()
+                };
+                assert_eq!(
+                    decode_rpc_body(&body, event_stream).unwrap_err().code,
+                    "MCP_BAD_RESPONSE",
+                    "id={id}, event_stream={event_stream}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sse_numeric_id_ignores_later_non_matching_responses() {
+        let body = concat!(
+            "data: {\"jsonrpc\":\"2.0\",\"id\":1.0,\"result\":{\"tools\":[]}}\n\n",
+            "data: {\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{\"wrong\":true}}\n\n",
+            "data: {\"jsonrpc\":\"2.0\",\"id\":1.5,\"result\":{\"wrong\":true}}\n\n",
+            "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\"}\n\n"
+        );
+        assert_eq!(decode_rpc_body(body, true).unwrap(), json!({"tools": []}));
+    }
+
+    #[test]
     fn rpc_error_retains_original_numeric_code() {
-        let error = decode_rpc_body(
-            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"invalid params"}}"#,
-            false,
-        )
-        .unwrap_err();
-        assert_eq!(error.code, "-32602");
-        assert_eq!(error.message, "invalid params");
+        for id in ["1", "1.0"] {
+            let response = format!(
+                r#"{{"jsonrpc":"2.0","id":{id},"error":{{"code":-32602,"message":"invalid params"}}}}"#
+            );
+            for event_stream in [false, true] {
+                let body = if event_stream {
+                    format!("data: {response}\n\n")
+                } else {
+                    response.clone()
+                };
+                let error = decode_rpc_body(&body, event_stream).unwrap_err();
+                assert_eq!(error.code, "-32602");
+                assert_eq!(error.message, "invalid params");
+            }
+        }
     }
 
     #[test]
@@ -595,7 +660,7 @@ mod tests {
         let (endpoint, server) = fake_http(
             200,
             "application/json",
-            r#"{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"{\"success\":true,\"value\":42}"}]}}"#,
+            r#"{"jsonrpc":"2.0","id":1.0,"result":{"content":[{"type":"text","text":"{\"success\":true,\"value\":42}"}]}}"#,
         );
         let result = mcp_on(&endpoint, "fake.read", json!({}), 5, false);
         server.join().unwrap();

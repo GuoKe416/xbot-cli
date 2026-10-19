@@ -10,22 +10,22 @@ Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判�
 
 当前分发目标为 **Windows x64，Node.js 22 或更高版本**。npm 包包含原生可执行文件，不需要用户安装 Rust，也不在 `postinstall` 阶段下载程序。执行影刀操作前，需要本机已安装影刀客户端并启动、登录；帮助、版本、命令 schema 和内置指南可离线使用。
 
-通过 npm 安装。**npm 包名是 `@guanzhu.me/xbot-cli`，安装后的命令名仍是 `xbot-cli`。**
+通过 npm 安装。**npm 包名是 `@guanzhu.me/xbot-cli`，安装后可使用 `xbot` 或 `xbot-cli`，两者调用同一程序。**
 
 ```powershell
 npm install -g '@guanzhu.me/xbot-cli'
-xbot-cli --version
-xbot-cli
-xbot-cli status --json
+xbot --version
+xbot
+xbot status --json
 ```
 
 不进行全局安装也可调用：
 
 ```powershell
-npx --yes --package '@guanzhu.me/xbot-cli' xbot-cli --help
+npx --yes --package '@guanzhu.me/xbot-cli' xbot --help
 ```
 
-这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，固定版本，例如 `npm install -g '@guanzhu.me/xbot-cli@0.6.1'`。PowerShell 中带 `@` 的 npm 包参数使用单引号包围。
+这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，将包名写为 `@guanzhu.me/xbot-cli@<version>`，用已验证的实际版本替换 `<version>`。PowerShell 中带 `@` 的 npm 包参数使用单引号包围。
 
 也可从源码构建并直接运行：
 
@@ -123,6 +123,30 @@ xbot-cli task status <task-id> --json
 xbot-cli task logs <task-id> --json
 ```
 
+### 浏览器交互：`xbot web`
+
+使用类似 Playwright CLI 的短命令完成“打开页面 → 读取快照 → 操作元素”的循环，常用动作无需手写 JSON。执行仍通过影刀的浏览器后端，需要已打开 Studio 应用，并有安装影刀扩展的浏览器，或使用内置影刀浏览器。
+
+```powershell
+xbot web open baidu.com
+xbot web snapshot
+# 从当前快照选择实际元素编号；以下 e4、e7 仅演示语法
+xbot web fill e4 "影刀 RPA"
+xbot web press Enter --ref e4
+xbot web click e7
+xbot web snapshot --output after-search.txt
+```
+
+裸域名会补全为 HTTPS。`open` 不带 URL 时打开 `about:blank`；附着用户当前活动页使用 `xbot web active`（别名 `attach`），在受控页面内跳转使用 `xbot web goto <url>`。
+
+打开、附着、导航和常用交互成功后会自动读取快照，使用返回的真实 ref 继续操作；可加 `--no-snapshot` 跳过。快照保留后端的元数据，内容可能是增量变化。自动快照失败时，动作仍返回成功并附带 warning 和 `applied: true`，此时单独调用 `web snapshot`，不要重复执行刚才的点击或提交。`close` 关闭当前受控页，不读取关闭后的快照。
+
+`snapshot --output <file>`（别名 `--filename`）保存快照文本，不覆盖已有文件。需要分析 JSON 时显式加 `--json`；需要在管道中读取快照文本时使用 `--format text`。
+
+元素操作可用 `--name <名称>` 指定暂存选择器名称；省略时 CLI 自动生成唯一中文临时名。这些名称会暂存在后端，调用 `web_review` 前不会写入项目元素库。`browser` 是 `web` 的兼容别名，旧的 `xbot-cli browser` 调用仍可使用。
+
+更多命令见 `xbot web --help` 或 `xbot guide browser`；上传、下载等专用能力通过 `tool browser` 按实时 schema 调用。
+
 ## 命令与输出契约
 
 | 入口 | 用途 |
@@ -132,7 +156,7 @@ xbot-cli task logs <task-id> --json
 | `flow` | 流程读取、参数、静态检查、实际运行与等待 |
 | `flow code` / `flow visual` | CodeFlow 源码和 VisualFlow 块 |
 | `task` | 已发布应用的控制台任务 |
-| `browser` | 浏览器上下文、快照与交互 |
+| `web`（别名 `browser`） | 浏览器上下文、快照与 click/fill/press 等交互 |
 | `tool studio` / `tool browser` | 原始工具的发现、schema 和调用 |
 | `wiki` / `schema` / `guide` | 官方知识库、命令参数与内置开发指南 |
 | `install --skills` | 安装 Agent Skill |
@@ -208,7 +232,7 @@ cargo build --release
 
 非标准客户端安装可使用 `XBOT_SHELL_CLI`、`XBOT_MCP_ENDPOINT`、`XBOT_BROWSER_MCP_ENDPOINT`、`XBOT_LAUNCHER` 覆盖默认路径或连接地址。不要把账号凭据、生产环境配置或运行日志提交到仓库。
 
-源码托管于 [wn0x00/xbot-cli](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`@guanzhu.me/xbot-cli`](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)，CLI 命令名为 `xbot-cli`。配置发布身份及正式发布步骤见[发布说明](docs/releasing.md)。
+源码托管于 [wn0x00/xbot-cli](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`@guanzhu.me/xbot-cli`](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)，CLI 可通过 `xbot` 或 `xbot-cli` 调用。配置发布身份及正式发布步骤见[发布说明](docs/releasing.md)。
 
 ## 参与开发与发版
 

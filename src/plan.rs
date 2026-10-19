@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use crate::app_cmds::CmdOut;
 use crate::cli::*;
 use crate::core::{self, BackendError, Res};
-use crate::{app_cmds, commands, extra_cmds, flow_cmds, input};
+use crate::{app_cmds, commands, extra_cmds, flow_cmds, input, web_cmds};
 
 enum Operation {
     Command(Group),
@@ -38,6 +38,7 @@ enum Operation {
         payload: Value,
     },
     BrowserAct(Value),
+    Web(web_cmds::PreparedWeb),
     ToolCall {
         browser: bool,
         tool: String,
@@ -104,6 +105,7 @@ impl PreparedCommand {
                 flow_cmds::flow_fill_prepared(flow_id.as_deref(), payload)
             }
             Operation::BrowserAct(args) => extra_cmds::browser_act_prepared(args),
+            Operation::Web(command) => command.execute(),
             Operation::ToolCall {
                 browser,
                 tool,
@@ -281,7 +283,7 @@ pub fn prepare(group: Group) -> Res<PreparedCommand> {
         Group::Browser(BrowserSub::Act { args_json }) => {
             let args = input::browser_args(Some(&args_json))?;
             Ok(planned(
-                "browser.act",
+                "web.act",
                 json!("active_page"),
                 args.clone(),
                 Operation::BrowserAct(args),
@@ -302,6 +304,22 @@ pub fn prepare(group: Group) -> Res<PreparedCommand> {
             args_json,
             timeout,
         }) => tool_call(true, tool, args_json, timeout),
+        Group::Browser(sub) => {
+            if let Some(command) = web_cmds::prepare(&sub)? {
+                let preview = Some(command.preview());
+                Ok(PreparedCommand {
+                    operation: Operation::Web(command),
+                    preview,
+                    confirmation_required: false,
+                })
+            } else {
+                Ok(PreparedCommand {
+                    operation: Operation::Command(Group::Browser(sub)),
+                    preview: None,
+                    confirmation_required: false,
+                })
+            }
+        }
         Group::Mcp {
             action,
             args,
@@ -428,12 +446,6 @@ fn describe(group: &Group) -> Res<Option<Value>> {
                 json!({"op": op, "block_ids": block_ids}),
             )
         }
-        Group::Browser(BrowserSub::Open { url, mode }) => (
-            "browser.open",
-            json!({"url": url.as_deref().unwrap_or("about:blank")}),
-            json!({"mode": mode}),
-        ),
-        Group::Browser(BrowserSub::Active) => ("browser.active", json!("active_page"), json!({})),
         Group::Install { skills, global } => {
             if !skills {
                 return Err(BackendError::new("BAD_ARGS", "请显式指定 --skills"));

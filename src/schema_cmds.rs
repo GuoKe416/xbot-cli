@@ -35,12 +35,18 @@ pub fn canonical_path(path: &[&str]) -> Vec<String> {
         ["mcp", action @ ("schema" | "call"), rest @ ..] => {
             [vec!["tool", "studio", action], rest.to_vec()].concat()
         }
-        ["browser", "tools", rest @ ..] => {
+        ["web" | "browser", "tools", rest @ ..] => {
             [vec!["tool", "browser", "list"], rest.to_vec()].concat()
         }
-        ["browser", action @ ("schema" | "call"), rest @ ..] => {
+        ["web" | "browser", action @ ("schema" | "call"), rest @ ..] => {
             [vec!["tool", "browser", action], rest.to_vec()].concat()
         }
+        ["web" | "browser", "attach", rest @ ..] => [vec!["web", "active"], rest.to_vec()].concat(),
+        ["web" | "browser", "back", rest @ ..] => [vec!["web", "go-back"], rest.to_vec()].concat(),
+        ["web" | "browser", "forward", rest @ ..] => {
+            [vec!["web", "go-forward"], rest.to_vec()].concat()
+        }
+        ["browser", rest @ ..] => [vec!["web"], rest.to_vec()].concat(),
         _ => path.to_vec(),
     };
     words.into_iter().map(str::to_owned).collect()
@@ -75,9 +81,13 @@ pub fn command_metadata(path: &[&str]) -> CommandMetadata {
             (&["write"], "studio", true, "none")
         }
         ["flow", ..] | ["diag"] => (&["read"], "studio", false, "none"),
-        ["browser", "open" | "active"] => (&["change_browser_context"], "browser", true, "none"),
-        ["browser", "act"] => (&["interact"], "browser", true, "none"),
-        ["browser", ..] => (&["read"], "browser", false, "none"),
+        ["web", "open" | "active" | "goto" | "go-back" | "go-forward" | "reload" | "close"] => {
+            (&["change_browser_context"], "browser", true, "none")
+        }
+        ["web", "act" | "click" | "dblclick" | "fill" | "type" | "press" | "hover" | "select" | "check"
+        | "uncheck"] => (&["interact"], "browser", true, "none"),
+        ["web", "snapshot"] => (&["read", "write_file_when_output"], "browser", true, "none"),
+        ["web", ..] => (&["read"], "browser", false, "none"),
         ["tool", "studio", "call"] => (&["tool_defined"], "studio", true, "tool_defined"),
         ["tool", "browser", "call"] => (&["tool_defined"], "browser", true, "tool_defined"),
         ["tool", ..] => (&["read"], "service", false, "none"),
@@ -362,7 +372,7 @@ fn input_shapes(path: &[&str]) -> Value {
         ["task", "run"] => {
             json!({"inputs_json":json_input(json!({"type":"object"})),"inputs":{"encoding":"repeated --input KEY=VALUE", "value":"JSON value if valid JSON, otherwise string", "precedence":"inputs_json overrides repeated input keys"}})
         }
-        ["browser", "act"] => json!({"args_json":json_input(json!({"type":"object"}))}),
+        ["web", "act"] => json!({"args_json":json_input(json!({"type":"object"}))}),
         ["tool", _, "call"] => {
             json!({"args_json":json_input(json!({"type":"object"})), "backend_fields":"Fetch the selected tool schema; fields depend on tool and installed client version"})
         }
@@ -374,7 +384,10 @@ fn dynamic_schema_hint(path: &[&str]) -> Option<&'static str> {
     match path {
         ["tool", "studio", ..] => Some("xbot-cli tool studio schema <tool>"),
         ["tool", "browser", ..] => Some("xbot-cli tool browser schema <tool>"),
-        ["browser", "act"] => Some("xbot-cli tool browser schema web_action"),
+        ["web", "act" | "click" | "dblclick" | "fill" | "type" | "press" | "hover" | "select" | "check"
+        | "uncheck" | "goto" | "reload" | "go-back" | "go-forward" | "close"] => {
+            Some("xbot-cli tool browser schema web_action")
+        }
         ["flow", "params", "set"] => Some("xbot-cli tool studio schema flow.write_parameters"),
         ["flow", "visual", "edit"] => Some("xbot-cli tool studio schema flow.edit_blocks"),
         ["flow", "visual", "fill"] => Some("xbot-cli tool studio schema flow.fill_blocks"),
@@ -387,6 +400,20 @@ fn examples(command: &Command, path: &[&str]) -> Vec<String> {
         return vec![help.to_string()];
     }
     let examples: &[&str] = match path {
+        ["web", "open"] => &[
+            "xbot web open example.com",
+            "xbot web open https://example.com --mode edge",
+        ],
+        ["web", "active"] => &["xbot web active"],
+        ["web", "snapshot"] => &["xbot web snapshot", "xbot web snapshot --output page.txt"],
+        ["web", "click"] => &[
+            "xbot web click e5",
+            "xbot web click e5 --button right --no-snapshot",
+        ],
+        ["web", "fill"] => &["xbot web fill e4 \"hello\""],
+        ["web", "press"] => &["xbot web press Enter", "xbot web press Control+A --ref e4"],
+        ["web", "select"] => &["xbot web select e9 blue"],
+        ["web", "goto"] => &["xbot web goto https://example.com/page"],
         ["flow", "check"] => &["xbot-cli flow check main --expect-app <app-id>"],
         ["flow", "wait"] => &["xbot-cli flow wait <run-id> --timeout 600"],
         ["flow", "code", "read"] => &["xbot-cli flow code read main"],

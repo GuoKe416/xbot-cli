@@ -11,13 +11,13 @@
 | `flow` | Studio 流程的读取、参数、编辑、静态检查与运行 |
 | `flow code` / `flow visual` | CodeFlow 源码和 VisualFlow 块 |
 | `task` | 已发布应用的运行任务、状态、日志与停止 |
-| `browser` | 浏览器上下文、快照与交互 |
+| `web`（兼容 `browser`） | 打开网页、快照、点击、填写和导航 |
 | `tool studio` / `tool browser` | 按 schema 调用原始工具 |
 | `wiki` / `schema` / `guide` | 领域知识、命令契约和开发指南 |
 
 ## 安装与 Agent 接入
 
-Windows x64、Node.js 22+ 环境可通过 npm 包 `@guanzhu.me/xbot-cli` 安装预编译程序，无需安装 Rust；安装后的命令名仍是 `xbot-cli`。安装命令和可复制的 Agent 指令见[项目 README](../README.md#安装与首次运行)。
+Windows x64、Node.js 22+ 环境可通过 npm 包 `@guanzhu.me/xbot-cli` 安装预编译程序，无需安装 Rust；`xbot` 与 `xbot-cli` 是同一程序的两个入口。安装命令和可复制的 Agent 指令见[项目 README](../README.md#安装与首次运行)。
 
 ```powershell
 xbot-cli install --skills --json           # 当前工作区 .agents/skills
@@ -165,6 +165,27 @@ JSON 参数通常接受字面 JSON、`@file` 或 `-` stdin；源码文件参数�
 
 所有 `--timeout` 参数的范围为 1–86400 秒，范围也随参数 schema 返回。
 
+## 网页操作
+
+`web` 使用影刀浏览器后端，以快照中的真实元素编号操作页面：
+
+```powershell
+xbot web open example.com
+xbot web fill e4 "hello"
+xbot web click e5
+xbot web press Enter
+xbot web goto https://example.com/page
+xbot web snapshot --output page.txt
+```
+
+示例编号必须替换为最近快照中的编号。`open` 自动为裸域名补全 HTTPS；`active`（别名 `attach`）附着活动页面。`click`、`dblclick`、`fill`、`hover`、`check`、`uncheck`、`select` 接受元素编号；`type` 和 `press` 默认作用于当前焦点，`press --ref <ref>` 指定元素。导航使用 `goto`、`reload`、`go-back`、`go-forward` 和 `close`。
+
+打开、附着、导航（除 `close`）及上述元素、键盘交互成功后默认获取快照，`--no-snapshot` 可关闭这一步；`eval` 和底层工具调用不追加快照。快照失败会保留操作成功及 `applied: true`，并返回 `warning`；不要因此重复点击或提交。快照正文及 full/diff 元数据来自后端，CLI 不改写编号。`snapshot --output` 保存正文且不覆盖已有文件。终端默认文本输出，管道默认 JSON；`--json` 显式保留完整结果，`--format text` 可强制输出文本。
+
+影刀元素操作要求选择器名称；CLI 默认生成唯一临时名称，`--name` 可指定名称。它们会暂存在影刀浏览器后端，写入项目元素库仍由显式的 review 流程控制。`eval` 保持注入 `activePage` 的只读异步函数体语法。完整参数见 `xbot web --help` 和 [浏览器指南](../skills/xbot-app-dev/references/browser.md)。
+
+## 原始工具
+
 原始工具也有明确的子命令：
 
 ```bash
@@ -180,7 +201,7 @@ xbot-cli tool browser call web_get_active '{}'
 
 ## 旧命令迁移
 
-以下入口保留兼容，但不再出现在推荐命令树中。新脚本与新 Skill 使用右侧形式：
+以下入口保留兼容，新脚本与新 Skill 使用右侧形式：
 
 | 旧入口 | 推荐入口 |
 |---|---|
@@ -192,6 +213,7 @@ xbot-cli tool browser call web_get_active '{}'
 | `app task-status/task-logs` | `task status/logs` |
 | `mcp tools/schema/call` | `tool studio list/schema/call` |
 | `browser tools/schema/call` | `tool browser list/schema/call` |
+| `browser open/active/snapshot/...` | `web open/active/snapshot/...` |
 
 旧 `mcp <tool> [json]` 和 `flow visual toggle` 也仅用于兼容。`app new`、`flow new` 仍是 `create` 的别名。旧入口采用当前的帮助、输入校验和输出契约；叶命令缺少必填参数仍返回参数错误。
 

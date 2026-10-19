@@ -1,5 +1,5 @@
 //! Command grammar. Runtime work lives in commands and plan.
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 /// Every wait is bounded; reject overflow before any backend action.
 pub(crate) const MAX_TIMEOUT_SECS: u64 = 86_400;
@@ -58,8 +58,8 @@ pub(crate) enum Group {
     /// 底层工具的发现、schema 与调用
     #[command(subcommand)]
     Tool(ToolChannel),
-    /// 浏览器自动化(browser-use-mcp)
-    #[command(subcommand)]
+    /// 网页操作:打开、快照、点击、填写与导航
+    #[command(name = "web", visible_alias = "browser", subcommand)]
     Browser(BrowserSub),
     /// 影刀官方知识库
     #[command(subcommand)]
@@ -339,19 +339,140 @@ pub(crate) enum VisualSub {
     },
 }
 
+#[derive(Args)]
+pub(crate) struct WebOptions {
+    /// 操作成功后不获取页面快照
+    #[arg(long)]
+    pub no_snapshot: bool,
+}
+
+#[derive(Args)]
+pub(crate) struct WebElement {
+    /// 最近页面快照中的元素编号，例如 e4
+    pub refid: String,
+    /// 为元素暂存指定的选择器名称；省略时生成唯一临时名称
+    #[arg(long)]
+    pub name: Option<String>,
+}
+
 #[derive(Subcommand)]
 pub(crate) enum BrowserSub {
     /// 打开 URL 并建立浏览器上下文;缺省打开 about:blank
     Open {
         url: Option<String>,
-        #[arg(long)]
+        #[arg(long, visible_alias = "browser")]
         mode: Option<String>,
+        #[command(flatten)]
+        options: WebOptions,
     },
     /// 附着到当前活动浏览器页
-    Active,
-    /// 页面可访问性快照
-    Snapshot,
-    /// 执行一次浏览器交互
+    #[command(visible_alias = "attach")]
+    Active {
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 获取带元素编号的页面快照，可保存到文件
+    Snapshot {
+        #[arg(long, visible_alias = "filename")]
+        output: Option<String>,
+    },
+    /// 点击快照中的元素
+    Click {
+        #[command(flatten)]
+        element: WebElement,
+        #[arg(long, value_parser = ["left", "right", "middle"], default_value = "left")]
+        button: String,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 双击元素
+    Dblclick {
+        #[command(flatten)]
+        element: WebElement,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 清空并填写输入框
+    Fill {
+        #[command(flatten)]
+        element: WebElement,
+        text: String,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 向当前焦点输入文字
+    Type {
+        text: String,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 按键，例如 Enter、Tab 或 Control+A
+    Press {
+        key: String,
+        #[arg(long = "ref")]
+        refid: Option<String>,
+        #[arg(long, requires = "refid")]
+        name: Option<String>,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 将鼠标悬停在元素上
+    Hover {
+        #[command(flatten)]
+        element: WebElement,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 勾选复选框
+    Check {
+        #[command(flatten)]
+        element: WebElement,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 取消勾选复选框
+    Uncheck {
+        #[command(flatten)]
+        element: WebElement,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 按 option value 选择下拉选项
+    Select {
+        #[command(flatten)]
+        element: WebElement,
+        #[arg(required = true, num_args = 1..)]
+        values: Vec<String>,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 当前页面跳转到 URL
+    Goto {
+        url: String,
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 刷新当前页面
+    Reload {
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 返回上一页
+    #[command(visible_alias = "back")]
+    GoBack {
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 前进到下一页
+    #[command(visible_alias = "forward")]
+    GoForward {
+        #[command(flatten)]
+        options: WebOptions,
+    },
+    /// 关闭当前受控页面
+    Close,
+    /// 使用 JSON 执行底层交互（高级兼容入口）
+    #[command(hide = true)]
     Act { args_json: String },
     /// 页面内执行只读 Playwright 代码
     Eval { code: String },

@@ -139,9 +139,11 @@ fn examples(path: &[&str]) -> &'static [&'static str] {
             "xbot-cli tool browser list",
             "xbot-cli tool browser schema web_get_active",
         ],
-        ["browser"] => &[
-            "xbot-cli browser open https://example.com",
-            "xbot-cli browser snapshot",
+        ["web"] => &[
+            "xbot web open example.com",
+            "xbot web fill e4 \"hello\"",
+            "xbot web click e5",
+            "xbot web snapshot --output page.txt",
         ],
         ["wiki"] => &["xbot-cli wiki list", "xbot-cli wiki search CodeFlow"],
         _ => &[],

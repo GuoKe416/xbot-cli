@@ -2,7 +2,7 @@
 
 ## 安装与运行环境
 
-npm 包 `@guanzhu.me/xbot-cli` 为 Windows x64 提供预编译程序，要求 Node.js 22+，安装后的命令名仍是 `xbot-cli`；用户无需 Rust，不通过 postinstall 下载程序。运行实际影刀操作前，客户端须已安装、启动并登录。`xbot-cli install --skills` 将 Skill 写入当前工作区的 `.agents/skills/xbot-app-dev`，`--global` 则写入用户目录；已有内容不同时先报冲突，确认覆盖后才使用 `--yes`。
+npm 包 `@guanzhu.me/xbot-cli` 为 Windows x64 提供预编译程序，要求 Node.js 22+，安装后 `xbot` 与 `xbot-cli` 调用同一程序；用户无需 Rust，不通过 postinstall 下载程序。运行实际影刀操作前，客户端须已安装、启动并登录。`xbot install --skills` 将 Skill 写入当前工作区的 `.agents/skills/xbot-app-dev`，`--global` 则写入用户目录；已有内容不同时先报冲突，确认覆盖后才使用 `--yes`。
 
 需要解析业务结果时始终显式使用 `--json`；下文省略此参数的示例只展示操作语法。自动化必须分别捕获 stdout、stderr 和退出码，不把两条输出流拼接成一个 JSON 文档。
 
@@ -11,7 +11,7 @@ npm 包 `@guanzhu.me/xbot-cli` 为 Windows x64 提供预编译程序，要求 No
 - `app` 管应用生命周期；`flow` 管当前 Studio 流程，源码使用 `flow code`，块使用 `flow visual`。
 - `flow check` 检查整个应用的静态诊断，传入流程时先核验目标（`scope: app`），不启动流程；`flow verify` = 静态诊断 + 实际运行 + Out；已有运行用 `flow wait <run-id>` 继续等待。
 - `task run/stop/status/logs` 管已发布应用的运行任务，使用 task_id，不与 Studio run_id 混用。
-- `browser` 管浏览器上下文、快照与交互。
+- `web` 管浏览器上下文、快照与交互，`browser` 是兼容别名。使用 `web click <ref>`、`web fill <ref> <text>`、`web press <key>` 等高层命令，不为常用动作编写 JSON。
 - `tool studio` / `tool browser` 提供 `list/schema/call`；优先资源命令，不足时才用原始工具。
 
 ```bash
@@ -29,6 +29,12 @@ xbot-cli flow wait <run-id> --timeout 600 --expect-app <app-id>
 多数流程命令的 `flow_id` 可省略：优先活动流程；类型不匹配时仅在唯一候选时自动选择；歧义时读 `FLOW_ID_REQUIRED.data.candidates` 并显式指定。连续修改建议显式 app_id 断言和 flow_id。
 
 `flow visual enable/disable <block-id...> --flow <flow-id>` 用明确的操作代替 toggle；省略 `--flow` 时采用同样的上下文解析规则。
+
+`web open [url]` 建立浏览器上下文，`web active`（别名 `attach`）附着当前活动页，`web goto <url>` 在受控页内跳转。它们使用影刀当前浏览器上下文，不提供 Playwright CLI 的命名会话隔离。`web` 依赖的 Studio 和浏览器条件见 [browser.md](browser.md)。
+
+打开、附着、导航和常用交互成功后自动读取快照，可加 `--no-snapshot` 跳过；`web close` 不读取快照。动作成功后取快照失败仍返回 `ok: true`、退出 0，并提供 warning 和 `applied: true`。此时只补取 `web snapshot`，不要重放动作。快照保留后端元数据，可能是增量；ref 必须来自当前页面证据。`web snapshot --output <file>`（别名 `--filename`）保存文本，不覆盖已有文件。
+
+`--name` 指定元素暂存选择器名称；省略时 CLI 自动生成唯一中文临时名。操作会在后端暂存名称，只有 `web_review` 才将选定的选择器写入项目元素库。`web eval` 是注入 `activePage` 的只读 Playwright 函数体，不接受任意写入脚本来代替交互命令。
 
 ## 帮助与输出（v0.6）
 
@@ -102,5 +108,7 @@ xbot-cli tool studio call app.get_info '{}'
 ## 兼容入口
 
 旧顶层 `code` / `visual` 对应 `flow code` / `flow visual`；旧 `app run/stop/task-status/task-logs` 对应 `task run/stop/status/logs`；旧 `mcp tools/schema/call` 与 `browser tools/schema/call` 对应 `tool studio` 与 `tool browser`。这些入口保留兼容但隐藏，新任务使用推荐命令。
+
+`browser` 分组本身仍作为 `web` 的可见别名；`browser act <json>` 保留为隐藏的高级兼容入口。新任务使用 `web click/fill/press` 等明确命令。`web attach`、`web back`、`web forward` 分别是 `active`、`go-back`、`go-forward` 的别名。
 
 `visual toggle [flow] comment <id...>` 可迁移为 `flow visual disable <id...> --flow <flow>`，`uncomment` 迁移为 `enable`。

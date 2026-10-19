@@ -7,9 +7,9 @@ metadata:
 
 # 影刀应用与指令开发
 
-通过 `xbot-cli` 调用影刀内置 shell-cli、studio-mcp 和 browser-use-mcp，零注入、零反射。不要使用旧的 `xbot_agent` / `python -m xbot_cli` 工作流。
+通过 `xbot` 或 `xbot-cli` 调用影刀内置 shell-cli、studio-mcp 和 browser-use-mcp，两个命令名等价，零注入、零反射。不要使用旧的 `xbot_agent` / `python -m xbot_cli` 工作流。
 
-本 Skill 随 npm 包 `@guanzhu.me/xbot-cli` 分发，适用于 Windows x64 和 Node.js 22+，安装后的命令名仍是 `xbot-cli`。使用 `xbot-cli install --skills` 安装到当前工作区，或加 `--global` 安装到用户的 `.agents/skills`。运行影刀操作前需要客户端已启动并登录；帮助、schema 和 guide 可离线读取。
+本 Skill 随 npm 包 `@guanzhu.me/xbot-cli` 分发，适用于 Windows x64 和 Node.js 22+。使用 `xbot install --skills` 安装到当前工作区，或加 `--global` 安装到用户的 `.agents/skills`。运行影刀操作前需要客户端已启动并登录；帮助、schema 和 guide 可离线读取。
 
 ## 先读这些规则
 
@@ -21,7 +21,7 @@ metadata:
 6. `flow check` 仅静态检查；`flow verify` 会实际运行。超时保留 `run_id`，用 `flow wait` 继续等待，不启动第二份流程。开发运行完成不自动发布；未实际运行的路径不得声称已验证。
 7. 遵守当前工作区的 `AGENTS.md`、用户授权范围和项目实际提供的开发规范。不猜测团队规则，不依赖个人或团队专用服务。用户已有明确授权时不重复索要相同确认；授权不明确时先展示具体操作及影响。
 
-## 三条核心工作流
+## 常用工作流
 
 ### 查看上下文
 
@@ -54,6 +54,20 @@ xbot-cli flow verify report --timeout 600 --expect-app <app-id> --json
 xbot-cli flow visual snapshots report --expect-app <app-id> --json
 ```
 
+### 浏览器交互
+
+先阅读 [references/browser.md](references/browser.md)。使用 `web` 的位置参数操作页面，无需为常用动作编写 JSON：
+
+```bash
+xbot web open https://example.com --json
+xbot web snapshot --json
+# e4 是语法示例，必须替换为当前快照里的实际 ref
+xbot web fill e4 "搜索内容" --json
+xbot web press Enter --ref e4 --json
+```
+
+打开、附着、导航和常用交互后默认返回新快照；`--no-snapshot` 跳过，`close` 不取快照。保留快照元数据和真实 ref；增量快照不能当成完整页面。动作成功但自动快照失败时，读取 warning 和 `applied: true`，只补取快照，不重复动作。元素选择器名称会暂存于后端，省略 `--name` 时由 CLI 生成临时名称；只有后续 `web_review` 才将选定的选择器写入项目元素库。
+
 ## Reference 强触发索引
 
 命中任一条件时，在下一步前读取对应 reference；同一文件只读一次。也可通过 `xbot-cli guide <topic>` 获取同一内容。
@@ -66,4 +80,4 @@ xbot-cli flow visual snapshots report --expect-app <app-id> --json
 | 网页探索、交互、XPath、选择器、上传下载或验证码 | [references/browser.md](references/browser.md) |
 | 维护既有应用、编辑模式冲突、运行失败、同步、发布或回收 | [references/recovery.md](references/recovery.md) |
 
-原始通道使用 `tool studio list/schema/call`、`tool browser list/schema/call`；已发布应用使用 `task run/stop/status/logs`。旧 `code`、`visual`、`mcp` 入口只用于兼容。影刀官方细节通过 `xbot-cli wiki list/search/read` 查询；不要用记忆替代当前契约。
+原始通道使用 `tool studio list/schema/call`、`tool browser list/schema/call`；已发布应用使用 `task run/stop/status/logs`。`browser` 是 `web` 的兼容别名；旧 `code`、`visual`、`mcp` 入口只用于兼容。影刀官方细节通过 `xbot-cli wiki list/search/read` 查询；不要用记忆替代当前契约。

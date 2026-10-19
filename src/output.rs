@@ -75,6 +75,13 @@ fn render_success(data: Option<&Value>) -> String {
     let Some(data) = data else {
         return "完成".into();
     };
+    if let Some(command) = data
+        .get("command")
+        .and_then(Value::as_str)
+        .filter(|c| c.starts_with("web."))
+    {
+        return render_web(data, command);
+    }
     if let Some(markdown) = data.get("markdown").and_then(Value::as_str) {
         return markdown.into();
     }
@@ -84,6 +91,94 @@ fn render_success(data: Option<&Value>) -> String {
     }
     let mut lines = Vec::new();
     render_value(data, 0, &mut lines);
+    lines.join("\n")
+}
+
+/// Show the observed accessibility tree directly. The JSON renderer retains
+/// the complete action response, snapshot metadata, and warning evidence.
+fn render_web(data: &Value, command: &str) -> String {
+    let status = match command {
+        "web.open" => "已打开网页",
+        "web.active" => "已连接当前浏览器页",
+        "web.snapshot" => "页面快照",
+        "web.click" => "已点击元素",
+        "web.dblclick" => "已双击元素",
+        "web.fill" => "已填写输入框",
+        "web.type" => "已输入文字",
+        "web.press" => "已按键",
+        "web.hover" => "已悬停元素",
+        "web.check" => "已勾选",
+        "web.uncheck" => "已取消勾选",
+        "web.select" => "已选择选项",
+        "web.goto" => "已跳转网页",
+        "web.reload" => "已刷新网页",
+        "web.go-back" => "已返回上一页",
+        "web.go-forward" => "已前进到下一页",
+        "web.close" => "已关闭页面",
+        _ => "网页操作已完成",
+    };
+    let mut lines = vec![status.to_owned()];
+    let snapshot = if command == "web.snapshot" {
+        Some(data)
+    } else {
+        data.get("snapshot")
+    };
+    let context = snapshot
+        .and_then(|s| s.get("browser_context"))
+        .or_else(|| data.get("browser_context"));
+    if let Some(url) = data
+        .get("url")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+    {
+        lines.push(format!("URL: {url}"));
+    }
+    if let Some(context) = context {
+        let product = context
+            .get("product_name")
+            .and_then(Value::as_str)
+            .or_else(|| context.get("mode").and_then(Value::as_str));
+        if let Some(product) = product.filter(|s| !s.is_empty()) {
+            let id = context.get("browser_id").filter(|v| !v.is_null());
+            lines.push(match id {
+                Some(id) => format!("浏览器: {product} ({})", scalar(id)),
+                None => format!("浏览器: {product}"),
+            });
+        }
+    }
+    if let Some(snapshot) = snapshot {
+        if snapshot
+            .pointer("/acc_tree_meta/kind")
+            .and_then(Value::as_str)
+            == Some("diff")
+        {
+            let index = snapshot
+                .pointer("/acc_tree_meta/diff_index")
+                .and_then(Value::as_u64);
+            lines.push(match index {
+                Some(index) => format!("快照: 增量 #{index}"),
+                None => "快照: 增量".into(),
+            });
+        }
+        if let Some(text) = crate::web_cmds::snapshot_text(snapshot) {
+            lines.push(String::new());
+            lines.push(text.to_owned());
+        }
+    }
+    if let Some(path) = data.get("snapshot_file").and_then(Value::as_str) {
+        lines.push(format!("快照已保存: {path}"));
+    }
+    if let Some(warning) = data.get("warning") {
+        if let Some(message) = warning.get("message").and_then(Value::as_str) {
+            lines.push(format!("警告: {message}"));
+        }
+        if let Some(message) = warning.pointer("/cause/message").and_then(Value::as_str) {
+            lines.push(format!("原因: {message}"));
+        }
+        if let Some(hint) = warning.get("hint").and_then(Value::as_str) {
+            lines.push(format!("提示: {hint}"));
+        }
+    }
     lines.join("\n")
 }
 
@@ -362,5 +457,55 @@ mod tests {
             assert!(!text.contains(hidden), "unexpected {hidden}: {text}");
         }
         assert!(render(&value, OutputMode::Json).contains("DEBUG_SECRET"));
+    }
+
+    #[test]
+    fn web_text_shows_snapshot_once_without_dumping_backend_objects() {
+        let tree = "### AccTree\n- textbox Name [e4]\n- button Greet [e5]";
+        let value = json!({"ok":true,"data":{
+            "command":"web.open","applied":true,"url":"https://example.com/",
+            "browser_context":{"mode":"edge","product_name":"Microsoft Edge","browser_id":42},
+            "result":{"debug":"BACKEND_OBJECT","image":"data:image/png;base64,DO_NOT_PRINT"},
+            "snapshot":{"success":true,"result":tree,"acc_tree_meta":{"kind":"diff","diff_index":3},
+                "browser_context":{"mode":"edge","product_name":"Microsoft Edge","browser_id":42}}
+        }});
+        let text = render(&value, OutputMode::Text);
+        for expected in [
+            "已打开网页",
+            "URL: https://example.com/",
+            "浏览器: Microsoft Edge (42)",
+            "快照: 增量 #3",
+            tree,
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        assert_eq!(text.matches(tree).count(), 1);
+        assert_eq!(text.matches("Microsoft Edge").count(), 1);
+        for hidden in [
+            "BACKEND_OBJECT",
+            "DO_NOT_PRINT",
+            "success:",
+            "browser_context:",
+            "applied:",
+        ] {
+            assert!(!text.contains(hidden), "unexpected {hidden}: {text}");
+        }
+        assert!(render(&value, OutputMode::Json).contains("DO_NOT_PRINT"));
+    }
+
+    #[test]
+    fn web_snapshot_and_warning_keep_refs_and_distinguish_success_from_observation_failure() {
+        let tree = "### AccTree\n- textbox [e4]";
+        let value = json!({"ok":true,"data":{"command":"web.snapshot","result":tree,"snapshot_file":"page.txt"}});
+        let text = render(&value, OutputMode::Text);
+        assert!(text.contains(tree));
+        assert!(text.contains("快照已保存: page.txt"));
+        let warning = json!({"ok":true,"data":{"command":"web.click","applied":true,
+            "warning":{"message":"网页操作已成功，但后续快照获取失败","hint":"先运行 xbot web snapshot；不要重复点击", "cause":{"message":"offline","data":{"raw":"HIDDEN"}}}}});
+        let text = render(&warning, OutputMode::Text);
+        assert!(text.starts_with("已点击元素"));
+        assert!(text.contains("原因: offline"));
+        assert!(text.contains("不要重复点击"));
+        assert!(!text.contains("HIDDEN"));
     }
 }

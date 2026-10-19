@@ -98,6 +98,8 @@ fn bare_groups_print_bounded_text_help_even_when_piped() {
         (vec!["flow"], "verify"),
         (vec!["flow", "code"], "write"),
         (vec!["tool", "studio"], "call"),
+        (vec!["web"], "fill"),
+        (vec!["browser"], "fill"),
         (vec!["code"], "read"),
         (vec!["visual"], "enable"),
     ] {
