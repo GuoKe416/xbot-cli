@@ -13,6 +13,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-config:
+    name: Release configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install isolated release validation tools
+        run: npm install --prefix "$RUNNER_TEMP/release-tools" --ignore-scripts --no-audit --no-fund release-please@17.3.0 ajv@8.20.0
+
+      - name: Verify version updates and merged PR release recognition
+        run: node scripts/test-release-config.cjs "$RUNNER_TEMP/release-tools"
+
   windows:
     name: Windows x64 / Node.js 24
     runs-on: windows-latest

@@ -1,6 +1,6 @@
 # xbot-cli
 
-[npm 安装包：@guanzhu.me/xbot-cli](https://www.npmjs.com/package/@guanzhu.me/xbot-cli) · [GitHub Releases 下载](https://github.com/wn0x00/xbot-cli/releases) · [v0.6.0 版本说明](https://github.com/wn0x00/xbot-cli/releases/tag/v0.6.0)
+[npm 安装包：@guanzhu.me/xbot-cli](https://www.npmjs.com/package/@guanzhu.me/xbot-cli) · [GitHub Releases 下载](https://github.com/wn0x00/xbot-cli/releases) · [最新版本说明](https://github.com/wn0x00/xbot-cli/releases/latest)
 
 面向 AI Agent 的影刀（ShadowBot）RPA 命令行工具。通过影刀客户端内置的 shell-cli、studio-mcp 和 browser-use-mcp 管理应用、编辑流程、运行验证及浏览器自动化。
 
@@ -25,7 +25,7 @@ xbot-cli status --json
 npx --yes --package '@guanzhu.me/xbot-cli' xbot-cli --help
 ```
 
-这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，固定版本，例如 `npm install -g '@guanzhu.me/xbot-cli@0.6.0'`。PowerShell 中带 `@` 的 npm 包参数使用单引号包围。
+这里的 `npx --yes` 是 npm 的安装确认选项，不是 xbot-cli 的操作确认。需要可重复执行的 Agent 环境时，固定版本，例如 `npm install -g '@guanzhu.me/xbot-cli@0.6.1'`。PowerShell 中带 `@` 的 npm 包参数使用单引号包围。
 
 也可从源码构建并直接运行：
 

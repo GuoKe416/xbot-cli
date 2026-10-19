@@ -46,6 +46,14 @@ npx --yes npm@11.21.1 trust github '@guanzhu.me/xbot-cli' --repo wn0x00/xbot-cli
 
 新绑定必须在两天内成功完成首次 OIDC 发布，否则需要重新创建。公开仓库通过 OIDC 发布公开包会生成 provenance。[npm trusted publishing](https://docs.npmjs.com/trusted-publishers/)。配置成功本身不代表发布已验收：应以新版本的 Actions 发布成功、npm 版本及完整性校验、Release 附件齐全为准。`0.6.0` 的本地发布不能证明 OIDC 链路有效。
 
+## 首次 OIDC 发布验收
+
+`0.6.1` 已完成真实 OIDC 发布：[Actions 运行](https://github.com/wn0x00/xbot-cli/actions/runs/39233553232)、[GitHub Release](https://github.com/wn0x00/xbot-cli/releases/tag/v0.6.1)、[npm 版本](https://www.npmjs.com/package/@guanzhu.me/xbot-cli/v/0.6.1)。本次由合并发版 PR 自动创建 tag 和 Release，再自动触发发布工作流，未使用长期 npm token。
+
+验收从公开下载入口核对了三个 Release 附件、SHA256SUMS 和 npm `dist.integrity`；npm provenance 中的仓库、`publish.yml`、`refs/tags/v0.6.1`、源码提交 `2ce27cd5ff0ac5f4703b32a1ea5568cd01f9b379` 及包摘要均匹配。此处核对的是公开 provenance 声明和摘要，未单独执行 Sigstore 签名的密码学校验。
+
+使用空 npm 缓存和临时目录从 registry 安装后，实际 Windows `.cmd` 入口的版本、根帮助、分组帮助、schema 和 Agent Skill 安装均通过；安装程序与 npm 包、Windows ZIP 内的可执行文件字节一致。CI 的 `Release configuration` 检查同时模拟版本更新及发版 PR 合并后的 tag 识别，避免只验证版本文件却遗漏自动发版链路。
+
 ## 本地验包
 
 维护者需要 Windows x64、Node.js 22+、Rust stable 和 MSVC 构建工具。从仓库根目录运行：
