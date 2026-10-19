@@ -1,5 +1,7 @@
 # xbot-cli
 
+[npm 安装包：@guanzhu.me/xbot-cli](https://www.npmjs.com/package/@guanzhu.me/xbot-cli) · [GitHub Releases 下载](https://github.com/wn0x00/xbot-cli/releases) · [v0.6.0 版本说明](https://github.com/wn0x00/xbot-cli/releases/tag/v0.6.0)
+
 面向 AI Agent 的影刀（ShadowBot）RPA 命令行工具。通过影刀客户端内置的 shell-cli、studio-mcp 和 browser-use-mcp 管理应用、编辑流程、运行验证及浏览器自动化。
 
 Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判断下一步，并安装随包提供的开发 Skill。CLI 使用 Rust 实现，通过 npm 分发预编译程序。

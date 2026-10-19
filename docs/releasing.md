@@ -2,6 +2,16 @@
 
 代码仓库为 [`wn0x00/xbot-cli`](https://github.com/wn0x00/xbot-cli)，npm 包名为 [`@guanzhu.me/xbot-cli`](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)，安装后的命令名仍是 `xbot-cli`。发布目标是 Windows x64；npm 包自带编译后的可执行文件，用户安装时不需要 Rust。项目使用 MIT 许可证。
 
+## 发布渠道
+
+| 渠道 | 用途与当前状态 |
+| --- | --- |
+| [npmjs](https://www.npmjs.com/package/@guanzhu.me/xbot-cli) | 当前正式安装来源。`npm install -g '@guanzhu.me/xbot-cli'` 从 `registry.npmjs.org` 获取包。 |
+| [GitHub Releases](https://github.com/wn0x00/xbot-cli/releases) | 提供与 Git tag 对应的版本说明和二进制下载附件。[v0.6.0 版本入口](https://github.com/wn0x00/xbot-cli/releases/tag/v0.6.0)。 |
+| [GitHub Packages](https://github.com/users/wn0x00/packages?repo_name=xbot-cli) | 独立的包托管服务，npm registry 地址为 `npm.pkg.github.com`。本项目未向这里发布；它不会自动显示或镜像 npmjs 上的包。 |
+
+这三个入口分别管理：发布到 npmjs 不会自动创建 GitHub Release，也不会填充 GitHub Packages。当前 `publish.yml` 仍是手动触发的 npm OIDC 发布工作流；GitHub Release 需另行创建并上传对应制品，自动发版尚未配置。
+
 ## 本地构建与验包
 
 维护者需要 Windows x64、Node.js 22 或更新版本和 Rust stable（含 MSVC 构建工具）。CI 使用 Node.js 24。所有命令从仓库根目录运行：
