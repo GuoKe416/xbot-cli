@@ -1,0 +1,136 @@
+name: Publish to npm
+
+# Run explicitly on a version tag, for example:
+# gh workflow run publish.yml --ref v0.6.1
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Validate and package Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      filename: ${{ steps.package.outputs.filename }}
+      sha256: ${{ steps.package.outputs.sha256 }}
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          architecture: x64
+          package-manager-cache: false
+
+      - name: Validate release tag and repository
+        run: |
+          node --input-type=commonjs -e '
+            const pkg = require("./package.json");
+            if (process.env.GITHUB_REF_TYPE !== "tag" || process.env.GITHUB_REF_NAME !== `v${pkg.version}`) {
+              throw new Error(`Run this workflow on tag v${pkg.version}; branches cannot publish.`);
+            }
+            if (pkg.name !== "xbot-cli") throw new Error("Unexpected npm package name");
+            const expected = `https://github.com/${process.env.GITHUB_REPOSITORY}`;
+            const repository = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
+            const actual = repository?.replace(/^git\+/, "").replace(/\.git$/, "").replace(/\/$/, "");
+            if (actual !== expected) throw new Error(`package.json repository.url must match ${expected}`);
+          '
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default stable
+
+      - name: Install npm project
+        run: npm ci --ignore-scripts
+
+      - name: Check Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Check Rust warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Build native executable
+        run: npm run build
+
+      - name: Test Rust and Node launcher
+        run: npm test
+
+      - name: Pack and test installed package
+        run: npm run test:package
+
+      - name: Record tested package checksum
+        id: package
+        run: |
+          $package = Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json
+          $filename = "xbot-cli-$($package.version).tgz"
+          $archive = Join-Path dist $filename
+          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
+            throw "Package integration test did not leave the expected archive: $archive"
+          }
+          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "filename=$filename" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha256=$digest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload tested npm package
+        id: artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/${{ steps.package.outputs.filename }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish tested archive with OIDC
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          architecture: x64
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Use an OIDC-capable npm version
+        run: npm install --global npm@11.8.0 --ignore-scripts
+
+      - name: Download the tested archive
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: dist
+          merge-multiple: true
+
+      - name: Verify checksum and publish the same archive
+        env:
+          PACKAGE_FILENAME: ${{ needs.build.outputs.filename }}
+          PACKAGE_SHA256: ${{ needs.build.outputs.sha256 }}
+        run: |
+          $archive = Join-Path dist $env:PACKAGE_FILENAME
+          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne $env:PACKAGE_SHA256) { throw 'Tested package checksum mismatch' }
+          npm publish $archive --access public --ignore-scripts

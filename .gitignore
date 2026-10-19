@@ -1,0 +1,14 @@
+/.local-archive/
+/.backups/
+/target/
+/native/**/*.exe
+/dist/
+/node_modules/
+*.tgz
+*.log
+.env
+.env.*
+!.env.example
+.npmrc
+.DS_Store
+Thumbs.db

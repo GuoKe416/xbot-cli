@@ -1,0 +1,106 @@
+# xbot-cli 契约
+
+## 安装与运行环境
+
+npm 包 `xbot-cli` 为 Windows x64 提供预编译程序，要求 Node.js 22+；用户无需 Rust，不通过 postinstall 下载程序。运行实际影刀操作前，客户端须已安装、启动并登录。`xbot-cli install --skills` 将 Skill 写入当前工作区的 `.agents/skills/xbot-app-dev`，`--global` 则写入用户目录；已有内容不同时先报冲突，确认覆盖后才使用 `--yes`。
+
+需要解析业务结果时始终显式使用 `--json`；下文省略此参数的示例只展示操作语法。自动化必须分别捕获 stdout、stderr 和退出码，不把两条输出流拼接成一个 JSON 文档。
+
+## 资源和工作流
+
+- `app` 管应用生命周期；`flow` 管当前 Studio 流程，源码使用 `flow code`，块使用 `flow visual`。
+- `flow check` 检查整个应用的静态诊断，传入流程时先核验目标（`scope: app`），不启动流程；`flow verify` = 静态诊断 + 实际运行 + Out；已有运行用 `flow wait <run-id>` 继续等待。
+- `task run/stop/status/logs` 管已发布应用的运行任务，使用 task_id，不与 Studio run_id 混用。
+- `browser` 管浏览器上下文、快照与交互。
+- `tool studio` / `tool browser` 提供 `list/schema/call`；优先资源命令，不足时才用原始工具。
+
+```bash
+xbot-cli status
+xbot-cli flow get main --expect-app <app-id>
+xbot-cli flow check main --expect-app <app-id>
+xbot-cli flow verify main --timeout 600 --expect-app <app-id>
+xbot-cli flow wait <run-id> --timeout 600 --expect-app <app-id>
+```
+
+## 上下文
+
+`--expect-app <id>` 在 Studio 命令开始前核对当前应用，不打开或切换应用，不匹配时停止。其他命令携带它会返回参数错误；适用性见 schema 的 `requires_studio`。
+
+多数流程命令的 `flow_id` 可省略：优先活动流程；类型不匹配时仅在唯一候选时自动选择；歧义时读 `FLOW_ID_REQUIRED.data.candidates` 并显式指定。连续修改建议显式 app_id 断言和 flow_id。
+
+`flow visual enable/disable <block-id...> --flow <flow-id>` 用明确的操作代替 toggle；省略 `--flow` 时采用同样的上下文解析规则。
+
+## 帮助与输出（v0.6）
+
+```bash
+xbot-cli                       # 简短根帮助，退出 0
+xbot-cli app                   # 分组帮助，退出 0
+xbot-cli flow code             # 嵌套分组帮助，退出 0
+xbot-cli tool studio           # 原始工具分组帮助，退出 0
+xbot-cli help app open         # 详细命令帮助
+xbot-cli app --json            # 当前分组的结构化帮助，不是完整 schema
+xbot-cli status --json         # 显式机器结果
+```
+
+裸根命令和纯分组是发现请求，默认显示简短文本帮助；`-h`、`--help`、`help <path>` 默认显示详细文本帮助。帮助写 stdout、退出 0，不访问后端、不检查登录、不初始化应用，即使在管道中也默认保持文本。`--version` 默认返回一行版本文本，追加 `--json` 则返回名称和版本字段。
+
+业务结果默认 `--format auto`：stdout 是终端时为简洁文本，非终端时为紧凑 JSON。需要解析结果时显式使用 `--json`，它等价于 `--format json`。`--format text` 强制文本；`--format pretty` 仍是 JSON，仅增加缩进。显式格式优先于自动选择，也可用于帮助、schema 和 guide。
+
+`schema` 默认始终为 JSON；`guide` 默认始终为 Markdown 文本，不随管道改变。JSON 帮助只给出当前层级的发现信息；需要精确参数和语义时另查 `schema <path>`。
+
+- 成功：结果写 stdout，退出 0；JSON 模式为 `{"ok":true,"data":...}`。
+- 失败：仅 stderr、非零退出码，按所选模式渲染；JSON 模式为 `{"ok":false,"error":{"type","code","message","hint","retryable"},"data":...}`。
+- 分组 `app` 不报缺少子命令；叶命令 `app open` 缺少必填 ID 返回退出 2，保留缺失参数、当前用法和修复提示。未知命令和选项也返回参数错误。
+- `data` 可包含部分成功、run_id、终态或日志尾部。先读实际应用状态和 hint，再决定重试；不只看 message。`retryable=true` 表示错误可恢复，不保证写入可安全重放；有 `applied: true` 时先确认修改已经应用。
+
+| 退出码 | 含义 | Agent 处理 |
+|---|---|---|
+| 0 | 成功 | 继续 |
+| 1 | 操作/API/运行失败 | 读 data 和 hint |
+| 2 | 参数或输入错误 | 用 `schema <path>` 修正，不原样重试 |
+| 3 | 认证/权限/配置 | 请用户登录或授权 |
+| 4 | 网络/离线/超时 | 先处理 hint，再有界重试 |
+| 5 | 冲突/占用 | 检查当前状态，避免并发 |
+| 6 | 内部或协议错误 | 保留响应，报告问题 |
+| 10 | 高风险确认门禁 | 展示动作，在用户明确授权后追加 `--yes`；已有授权无需重复请求 |
+
+## 预览和安全
+
+```bash
+xbot-cli flow code write main --file main.py --expect-app <app-id> --dry-run
+xbot-cli app publish <app-id> --log "..." --dry-run
+xbot-cli app publish <app-id> --log "..." --yes  # 仅在用户明确同意后
+```
+
+- `--dry-run` 与执行共用本地输入解析和校验，返回 `data.dry_run=true`，不执行后端操作。
+- 预览保持离线：运行时上下文、目标解析、权限、动态工具 schema 和后端接受性未验证；`--expect-app` 只是待执行前置条件。预览通过不能声称已验证应用。
+- `app publish`、`app recycle`、`app open --force` 需要用户明确确认和 `--yes`；不替用户确认，不将它作为默认参数。
+- 原始工具的效果由工具决定；高层工作流的额外校验和确认不应假定同样存在于任意 raw call。
+- JSON 参数支持字面 JSON、`@file`、`-` stdin；源码文件参数支持路径和 `-` stdin。复杂输入优先文件或 stdin。
+
+## 自省
+
+```bash
+xbot-cli
+xbot-cli flow code
+xbot-cli help flow code edit
+xbot-cli schema
+xbot-cli schema flow code edit
+xbot-cli schema flow visual disable
+xbot-cli schema tool studio call
+xbot-cli guide
+xbot-cli guide codeflow
+xbot-cli tool studio list
+xbot-cli tool studio schema app.run
+xbot-cli tool studio call app.get_info '{}'
+```
+
+先看当前层级的帮助，再按需查询所选命令的 schema。schema 返回 clap 参数与共享语义：aliases、value_type、position、arity、choices、defaults、effects、context、requires_studio、supports_dry_run、confirmation、input_shapes、examples。`arity.max=null` 表示不限数量；`input_shapes` 给出本地接受的形状，`dynamic_schema_hint` 指向运行中客户端的具体工具 schema。
+
+`tool ... list --full` 才返回长描述。先按需查工具 schema，再调用。默认不把长源码、原始 MCP 数据或全部 Wiki 装进上下文。
+
+## 兼容入口
+
+旧顶层 `code` / `visual` 对应 `flow code` / `flow visual`；旧 `app run/stop/task-status/task-logs` 对应 `task run/stop/status/logs`；旧 `mcp tools/schema/call` 与 `browser tools/schema/call` 对应 `tool studio` 与 `tool browser`。这些入口保留兼容但隐藏，新任务使用推荐命令。
+
+`visual toggle [flow] comment <id...>` 可迁移为 `flow visual disable <id...> --flow <flow>`，`uncomment` 迁移为 `enable`。
