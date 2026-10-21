@@ -113,12 +113,17 @@ xbot web snapshot --output after-search.txt
 
 ## 给 AI Agent 使用
 
-### 一句话快速接入
+### 复制这段话发给你的 Agent
 
-把下面这句话**直接复制**给 Codex、Claude Code、Cursor 等任何 AI Agent 即可开始使用：
+向别人推荐 xbot-cli 时只需一句话：**“复制下面这段话，发给你的 AI Agent。”** 适用于 Codex、Claude Code、Cursor、Kimi Code 等任何 Agent：
 
 ```text
-使用 xbot-cli 操作影刀 RPA：全局安装 npm install -g '@guanzhu.me/xbot-cli'，然后在我的项目里运行 xbot-cli install --skills --json 安装开发 Skill 并阅读生成的 .agents/skills/xbot-app-dev/SKILL.md 按其工作；解析结果一律加 --json，写入前先 --dry-run，发布和回收必须经我明确授权。
+请使用 xbot-cli 帮我操作影刀 RPA。步骤：
+1. 全局安装：npm install -g '@guanzhu.me/xbot-cli'（需要 Windows x64、Node.js 22+，且本机影刀客户端已启动登录）；
+2. 在我的项目目录运行 xbot-cli install --skills --json 安装开发 Skill，并阅读生成的 .agents/skills/xbot-app-dev/SKILL.md，按其规范工作；
+3. 先运行 xbot-cli status --json 确认环境，用 xbot-cli help <path> / schema <path> / guide <topic> 逐层了解命令；
+4. 解析结果一律显式加 --json；修改前先读现状，写入前先用 --dry-run 预览；
+5. 发布、回收等不可逆操作必须经我明确授权，未经确认不要执行。
 ```
 
 ### 安装开发 Skill
