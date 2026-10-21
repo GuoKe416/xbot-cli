@@ -1,22 +1,23 @@
 # xbot-cli
 
-[npm 安装包：@guanzhu.me/xbot-cli](https://www.npmjs.com/package/@guanzhu.me/xbot-cli) · [GitHub Releases 下载](https://github.com/wn0x00/xbot-cli/releases) · [最新版本说明](https://github.com/wn0x00/xbot-cli/releases/latest)
+面向 AI Agent 的影刀（ShadowBot）RPA 命令行工具。
 
-面向 AI Agent 的影刀（ShadowBot）RPA 命令行工具。通过影刀客户端内置的 shell-cli、studio-mcp 和 browser-use-mcp 管理应用、编辑流程、运行验证及浏览器自动化。
+[![npm 版本](https://img.shields.io/npm/v/%40guanzhu.me%2Fxbot-cli?label=npm&color=blue)](https://www.npmjs.com/package/@guanzhu.me/xbot-cli)
+[![CI](https://github.com/wn0x00/xbot-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/wn0x00/xbot-cli/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/wn0x00/xbot-cli?label=release)](https://github.com/wn0x00/xbot-cli/releases/latest)
+[![许可证](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判断下一步，并安装随包提供的开发 Skill。CLI 使用 Rust 实现，通过 npm 分发预编译程序。
+通过影刀客户端内置的 shell-cli、studio-mcp 和 browser-use-mcp 管理应用、编辑流程、运行验证及浏览器自动化。Agent 可以逐层查询帮助和参数 schema，通过稳定的 JSON 结果判断下一步，并安装随包提供的开发 Skill。CLI 使用 Rust 实现，通过 npm 分发预编译程序。
 
-## 安装与首次运行
+## 安装
 
-当前分发目标为 **Windows x64，Node.js 22 或更高版本**。npm 包包含原生可执行文件，不需要用户安装 Rust，也不在 `postinstall` 阶段下载程序。执行影刀操作前，需要本机已安装影刀客户端并启动、登录；帮助、版本、命令 schema 和内置指南可离线使用。
+**环境要求：Windows x64，Node.js 22 或更高版本。** npm 包包含原生可执行文件，不需要用户安装 Rust，也不在 `postinstall` 阶段下载程序。执行影刀操作前，需要本机已安装影刀客户端并启动、登录；帮助、版本、命令 schema 和内置指南可离线使用。
 
-通过 npm 安装。**npm 包名是 `@guanzhu.me/xbot-cli`，安装后可使用 `xbot` 或 `xbot-cli`，两者调用同一程序。**
+**npm 包名是 `@guanzhu.me/xbot-cli`，安装后可使用 `xbot` 或 `xbot-cli`，两者调用同一程序。**
 
 ```powershell
 npm install -g '@guanzhu.me/xbot-cli'
 xbot version
-xbot
-xbot status --json
 ```
 
 `xbot version` 和 `xbot-cli version` 离线输出当前 CLI 版本，`--version` / `-V` 仍可使用。版本默认输出一行文本，即使接入管道也不变；Agent 可用 `xbot version --json` 读取 `data.name` 和 `data.version`。
@@ -38,53 +39,12 @@ node .\bin\xbot-cli.cjs --help
 
 源码构建需要 Windows x64、Rust stable 和 MSVC 构建工具，详见[本地开发](#本地开发)。
 
-## 让 Agent 使用
+## 使用
 
-### 安装开发 Skill
-
-在 Agent 的工作目录运行：
+### 第一步：确认环境
 
 ```powershell
-xbot-cli install --skills --json
-```
-
-这会写入当前目录的 `.agents/skills/xbot-app-dev/`。若希望多个工作区共用，可安装到用户目录：
-
-```powershell
-xbot-cli install --skills --global --json
-```
-
-请使用支持 `.agents/skills` 的 Agent，或明确让 Agent 阅读生成的 `SKILL.md`。不支持自动加载 Skill 的工具也可以直接阅读下方指令。已有 Skill 内容不同时，CLI 会返回冲突；先查看差异，确认覆盖后再追加 `--yes`。
-
-随包提供的 Skill v9 包含 14 个文件，覆盖探索、开发、验收和维护模式，并提供业务任务、定位资产与验收证据模板。网页流程优先使用经过验证的 XPath；元素失效修复同时考虑有效的新旧定位和共存歧义。元素库名称采用“平台名_业务含义_按钮/输入框/标志”，流程按配置、业务、测试及根级主流程组织，编码变量优先使用英文 `snake_case`。
-
-风险分级、等待与状态确认、最小修复和回归要求属于 Agent 工作规范。当前浏览器接口仍共享活动页上下文，不提供独立多会话隔离；描述模板也不是自动执行器。新规范通过安装后的 `references/` 和 `templates/` 按需读取，`guide` 继续提供其已列出的内置主题。工作区的 `AGENTS.md` 和用户当前授权仍需遵守。
-
-### 可复制的 Agent 指令
-
-把下面的片段放入项目的 Agent 指令中，并提供要操作的应用 ID、流程和任务目标：
-
-```text
-使用 xbot-cli 操作影刀。先阅读已安装的 xbot-app-dev/SKILL.md，
-并遵守当前工作区的 AGENTS.md 和用户授权范围。
-
-1. 先运行 xbot-cli status --json。用根帮助、分组帮助和 help <path>
-   逐层发现命令；只查询当前任务需要的 schema <path>、guide <topic>。
-2. 解析业务结果时显式使用 --json。分别捕获 stdout、stderr 和退出码：
-   成功读 stdout 的 ok/data；失败读 stderr 的 error 和可能存在的 data。
-3. 修改前先读现状。Studio 操作显式传入 --expect-app <app-id> 和流程 ID；
-   --expect-app 只断言当前应用，不会切换应用。复杂输入优先 @file 或 stdin。
-4. 修改可先用 --dry-run 预览。它仅做离线校验，不证明权限、当前应用
-   或真实运行正常。不要直接编辑影刀应用目录。
-5. flow check 只做静态检查；flow verify 会实际运行。
-   超时后用返回的 run_id 调用 flow wait，不重新启动第二份流程。
-   控制台 task 命令使用 task_id，不能与 Studio run_id 混用。
-6. 失败先检查 error.code、retryable、hint 及 data 中的已应用修改和运行状态。
-   不盲目重试整个写入操作；retryable=true 也不代表写入一定可以安全重放。
-7. 不默认附加 --yes。发布、回收和强制打开仅在用户明确授权后执行；
-   已有授权继续有效，开发完成不自动发布。
-8. 汇报区分写入成功、静态检查通过和真实运行成功；给出 app_id、flow_id、
-   run_id/task_id、Out 或日志证据。未运行的路径明确标为未验证。
+xbot status --json
 ```
 
 ### 一个典型工作流
@@ -150,6 +110,63 @@ xbot web snapshot --output after-search.txt
 元素操作可用 `--name <名称>` 指定暂存选择器名称；省略时 CLI 自动生成唯一中文临时名。这些名称会暂存在后端，调用 `web_review` 前不会写入项目元素库。`browser` 是 `web` 的兼容别名，旧的 `xbot-cli browser` 调用仍可使用。
 
 更多命令见 `xbot web --help` 或 `xbot guide browser`；上传、下载等专用能力通过 `tool browser` 按实时 schema 调用。
+
+## 给 AI Agent 使用
+
+### 一句话快速接入
+
+把下面这句话**直接复制**给 Codex、Claude Code、Cursor 等任何 AI Agent 即可开始使用：
+
+```text
+使用 xbot-cli 操作影刀 RPA：全局安装 npm install -g '@guanzhu.me/xbot-cli'，然后在我的项目里运行 xbot-cli install --skills --json 安装开发 Skill 并阅读生成的 .agents/skills/xbot-app-dev/SKILL.md 按其工作；解析结果一律加 --json，写入前先 --dry-run，发布和回收必须经我明确授权。
+```
+
+### 安装开发 Skill
+
+在 Agent 的工作目录运行：
+
+```powershell
+xbot-cli install --skills --json
+```
+
+这会写入当前目录的 `.agents/skills/xbot-app-dev/`。若希望多个工作区共用，可安装到用户目录：
+
+```powershell
+xbot-cli install --skills --global --json
+```
+
+请使用支持 `.agents/skills` 的 Agent，或明确让 Agent 阅读生成的 `SKILL.md`。不支持自动加载 Skill 的工具也可以直接阅读下方完整指令。已有 Skill 内容不同时，CLI 会返回冲突；先查看差异，确认覆盖后再追加 `--yes`。
+
+随包提供的 Skill v9 包含 14 个文件，覆盖探索、开发、验收和维护模式，并提供业务任务、定位资产与验收证据模板。网页流程优先使用经过验证的 XPath；元素失效修复同时考虑有效的新旧定位和共存歧义。元素库名称采用“平台名_业务含义_按钮/输入框/标志”，流程按配置、业务、测试及根级主流程组织，编码变量优先使用英文 `snake_case`。
+
+风险分级、等待与状态确认、最小修复和回归要求属于 Agent 工作规范。当前浏览器接口仍共享活动页上下文，不提供独立多会话隔离；描述模板也不是自动执行器。新规范通过安装后的 `references/` 和 `templates/` 按需读取，`guide` 继续提供其已列出的内置主题。工作区的 `AGENTS.md` 和用户当前授权仍需遵守。
+
+### 完整的 Agent 工作指令
+
+把下面的片段放入项目的 Agent 指令中，并提供要操作的应用 ID、流程和任务目标：
+
+```text
+使用 xbot-cli 操作影刀。先阅读已安装的 xbot-app-dev/SKILL.md，
+并遵守当前工作区的 AGENTS.md 和用户授权范围。
+
+1. 先运行 xbot-cli status --json。用根帮助、分组帮助和 help <path>
+   逐层发现命令；只查询当前任务需要的 schema <path>、guide <topic>。
+2. 解析业务结果时显式使用 --json。分别捕获 stdout、stderr 和退出码：
+   成功读 stdout 的 ok/data；失败读 stderr 的 error 和可能存在的 data。
+3. 修改前先读现状。Studio 操作显式传入 --expect-app <app-id> 和流程 ID；
+   --expect-app 只断言当前应用，不会切换应用。复杂输入优先 @file 或 stdin。
+4. 修改可先用 --dry-run 预览。它仅做离线校验，不证明权限、当前应用
+   或真实运行正常。不要直接编辑影刀应用目录。
+5. flow check 只做静态检查；flow verify 会实际运行。
+   超时后用返回的 run_id 调用 flow wait，不重新启动第二份流程。
+   控制台 task 命令使用 task_id，不能与 Studio run_id 混用。
+6. 失败先检查 error.code、retryable、hint 及 data 中的已应用修改和运行状态。
+   不盲目重试整个写入操作；retryable=true 也不代表写入一定可以安全重放。
+7. 不默认附加 --yes。发布、回收和强制打开仅在用户明确授权后执行；
+   已有授权继续有效，开发完成不自动发布。
+8. 汇报区分写入成功、静态检查通过和真实运行成功；给出 app_id、flow_id、
+   run_id/task_id、Out 或日志证据。未运行的路径明确标为未验证。
+```
 
 ## 命令与输出契约
 
