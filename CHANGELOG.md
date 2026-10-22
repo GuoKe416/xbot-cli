@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.7.4](https://github.com/wn0x00/xbot-cli/compare/v0.7.3...v0.7.4) (2026-10-22)
 
 - Add Skill v10 Web and Windows modules, with Agent routing based on the failed call and its actual target. Embed and install all 38 Skill resources and expose the corresponding offline guides.
 - Add ref-to-XPath generation using the weighted DOM generator and a hash-pinned, externally supplied ROBULA+ source. Verify that generated paths identify the original node; support segmented iframe/open Shadow paths within the documented limits.

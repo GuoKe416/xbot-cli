@@ -142,7 +142,7 @@ xbot-cli install --skills --global --json
 
 请使用支持 `.agents/skills` 的 Agent，或明确让 Agent 阅读生成的 `SKILL.md`。不支持自动加载 Skill 的工具也可以直接阅读下方完整指令。已有 Skill 内容不同时，CLI 会返回冲突；先查看差异，确认覆盖后再追加 `--yes`。
 
-当前源码内置 **Skill v10，共 38 个文件**，包含 Web/Windows 模块、12 个脚本及业务任务、用途分析、定位和修复提议模板。已安装的旧 CLI 不会因本仓库文档更新而获得新 Skill；可从当前源码构建后安装，或等待包含这些改动的后续版本。
+从 **CLI 0.7.4** 起内置 **Skill v10，共 38 个文件**，包含 Web/Windows 模块、12 个脚本及业务任务、用途分析、定位和修复提议模板。使用 0.7.3 或更早版本时，先升级 CLI，再运行 `xbot-cli install --skills` 安装新 Skill；已有本地改动时先查看差异，再决定是否覆盖。
 
 | 能力 | 实现与范围 |
 |---|---|
