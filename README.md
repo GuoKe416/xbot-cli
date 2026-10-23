@@ -22,10 +22,8 @@ npm install -g '@guanzhu.me/xbot-cli'
 xbot version
 ```
 
-**0.7.5 重打包版：** 本次修正了企业备用入口的帮助和 Agent 指引，版本号仍为 0.7.5。
-请使用 [GitHub Release](https://github.com/wn0x00/xbot-cli/releases/tag/v0.7.5)
-中的更新附件；npm registry 不允许覆盖同版本，仍保留首次发布的 0.7.5。
-下载 Release 的 `.tgz` 后可运行 `npm install -g .\guanzhu.me-xbot-cli-0.7.5.tgz`。
+**0.7.5 已弃用：** 新增的开放平台 API 执行逻辑存在问题，请升级到 0.7.6。
+普通应用操作仍使用原有客户端 CLI；`platform` 仅供企业版用户明确选择时作为备用入口。
 
 `xbot version` 和 `xbot-cli version` 离线输出当前 CLI 版本，`--version` / `-V` 仍可使用。版本默认输出一行文本，即使接入管道也不变；Agent 可用 `xbot version --json` 读取 `data.name` 和 `data.version`。
 
