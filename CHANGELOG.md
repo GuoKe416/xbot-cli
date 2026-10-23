@@ -4,15 +4,13 @@
 
 - Fix command routing so application runs and diagnostics continue to use the existing client CLI by default. Enterprise `platform` API operations require explicit selection and never become an automatic fallback.
 - Update help, schema, README and the bundled Agent Skill to describe `platform` as an optional enterprise entry point; add regression coverage for default routing.
-- Deprecate 0.7.5 because of an issue in the newly added Open Platform API execution logic. Use 0.7.6; the GitHub 0.7.5 release artifacts are being removed. The immutable npm 0.7.5 package remains available by exact version.
+- Deprecate 0.7.5 because of an issue in the newly added Open Platform API execution logic. Upgrade to 0.7.6.
 
 ## [0.7.5](https://github.com/wn0x00/xbot-cli/compare/v0.7.4...v0.7.5) (2026-10-23)
 
-> Deprecated: the newly added Open Platform API execution logic had an issue. Upgrade to 0.7.6. The GitHub release artifacts are removed; npm 0.7.5 remains immutable.
+> Deprecated: the newly added Open Platform API execution logic had an issue. Upgrade to 0.7.6.
 
-Repacked on 2026-10-23 at the maintainer's request without changing the version. The updated GitHub assets used the `repack/0.7.5-20261023` source tag; npm registry 0.7.5 and the original `v0.7.5` tag retain the first publication.
-
-- Keep the existing client CLI as the default for application runs, flow development and error analysis. Add `platform` only as an optional enterprise Open API entry point, selected explicitly by the user; credentials and local failures never trigger an automatic switch. Bundle 68 documentation references and 44 endpoint contracts covering authentication, accounts, applications, robots, dispatch, logs, queues, files and run records.
+- Add the `platform` command group for the official enterprise Open API, independent of the local ShadowBot client. Bundle 68 documentation references and 44 endpoint contracts covering authentication, accounts, applications, robots, dispatch, logs, queues, files and run records.
 - Add schedule history, task results, job status and paginated log queries for investigating dispatch failures. Support synchronous log search and bounded notify-and-poll queries that retain the request ID on timeout.
 - Support environment-based API keys or access tokens and private-cloud HTTPS origins. Redact credentials and password fields, encode query/path parameters, preserve server error codes and pagination, and require confirmation for mutating endpoints.
 - Add offline API discovery and schemas, a reusable platform troubleshooting guide, seven-day validation for run-record queries and multipart file uploads.

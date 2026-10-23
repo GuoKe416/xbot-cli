@@ -101,7 +101,7 @@ npm test
 npm run test:package
 ```
 
-`test:package` 构建 Rust release，检查包内文件白名单，把生成的 `.tgz` 离线安装到独立临时目录，再验证命令、JSON 和 Skill。通过后保留 `dist/guanzhu.me-xbot-cli-<version>.tgz`。发布使用已验收的包，不重新打包；`.backups/`、`.local-archive/`、`target/` 和本地配置不属于发布内容。
+`test:package` 构建 Rust release，检查包内文件白名单，把生成的 `.tgz` 离线安装到独立临时目录，再验证命令、JSON 和 Skill。通过后保留 `dist/guanzhu.me-xbot-cli-<version>.tgz`，发布使用已验收的包；`.backups/`、`.local-archive/`、`target/` 和本地配置不属于发布内容。
 
 每次 Release 包含 `guanzhu.me-xbot-cli-<version>.tgz`、`xbot-cli-<version>-windows-x64.zip` 和 `SHA256SUMS.txt`。Windows 压缩包中的程序来自同一份已验收的 npm 包。CI 通过不代表真实影刀应用运行已验证；后者需要已启动并登录影刀的本机环境。
 
@@ -117,15 +117,3 @@ npm view '@guanzhu.me/xbot-cli@0.6.1' version dist.integrity --registry=https://
 将示例版本替换为需要恢复的版本；`publish.yml` 必须已存在于默认分支及该 tag。tag 必须等于 `v<package.json version>`，分支不能直接发布。
 
 重试时，已存在的 npm 版本只有在 `dist.integrity` 与本次制品一致时才跳过发布；同名 Release 附件只有校验值相同时才跳过上传。不同内容会失败，不覆盖已有版本或附件。若 npm 已成功而附件上传失败，恢复附件步骤即可；若源码或包内容需要修改，应通过新的 PR 发布新版本，不移动旧 tag。
-
-## 明确要求同版本重打包时
-
-常规发布仍按上文使用新版本。若维护者明确要求版本不变，只更新 GitHub 制品，
-先将修正合并到 `main`、通过 CI，并对新构建完成安装验收。为新源码创建独立
-`repack/<version>-<date>` 标签，在 Release 说明中记录该来源、重打包日期及校验值；
-原 `v<version>` 标签继续对应首次发布的 npm 内容。
-
-npm 不允许将同名同版本替换为不同内容，因此重打包不调用 npm 发布，也不绕过
-发布脚本的完整性保护。替换 GitHub 附件前保留旧文件，先上传并校验新附件，
-再替换名称和校验文件。Release 必须明确说明附件属于重打包版、npm registry
-仍保留旧包，并提供从 Release `.tgz` 安装的命令。
